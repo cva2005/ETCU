@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.Macros">
+<language name="Assembly Source File">
+<macro>
+<name>STM32F405xx</name><value/>
+</macro>
+<macro>
+<name>ARM_MATH_CM4</name><value/>
+</macro>
+<macro>
+<name>ATV61_MB</name><value/>
+</macro>
+<macro>
+<name>NO_FREQ_DRIVER</name><value/>
+</macro>
+<macro>
+<name>NO_SERVO_DRIVER</name><value/>
+</macro>
+
+</language>
+<language name="C Source File">
+<macro>
+<name>STM32F405xx</name><value/>
+</macro>
+<macro>
+<name>ARM_MATH_CM4</name><value/>
+</macro>
+<macro>
+<name>ATV61_MB</name><value/>
+</macro>
+<macro>
+<name>HAL_IWDG_MODULE_ENABLED</name><value/>
+</macro>
+<macro>
+<name>NO_SERVO_DRIVER</name><value/>
+</macro>
+<macro>
+<name>NO_TORQ_DRIVER</name><value/>
+</macro>
+<macro>
+<name>NO_BATTERY</name><value/>
+</macro>
+<macro>
+<name>MODEL_OBJ</name><value/>
+</macro>
+<macro>
+<name>NO_FREQ_DRIVER</name><value/>
+</macro>
+<macro>
+<name>RELE_OUT_TST</name><value/>
+</macro>
+
+</language>
+<language name="Object File">
+
+</language>
+</section>
+</cdtprojectproperties>

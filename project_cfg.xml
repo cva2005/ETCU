@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.IncludePaths">
+<language name="Assembly Source File">
+
+</language>
+<language name="C Source File">
+<includepath workspace_path="true">/${ProjName}/Inc</includepath>
+<includepath workspace_path="true">/${ProjName}/Middlewares/Third_Party/FatFs/src</includepath>
+<includepath workspace_path="true">/${ProjName}/Middlewares/Third_Party/FatFs/src/drivers</includepath>
+<includepath workspace_path="true">/${ProjName}/Drivers/STM32F4xx_HAL_Driver/Inc</includepath>
+<includepath workspace_path="true">/${ProjName}/Drivers/CMSIS/Include</includepath>
+<includepath workspace_path="true">/${ProjName}/Drivers/CMSIS/Device/ST/STM32F4xx/Include</includepath>
+<includepath workspace_path="true">/${ProjName}/App</includepath>
+<includepath workspace_path="true">/${ProjName}/App/drivers</includepath>
+<includepath workspace_path="true">/${ProjName}/App/interfaces</includepath>
+<includepath workspace_path="true">/${ProjName}/App/devices</includepath>
+
+</language>
+<language name="Object File">
+
+</language>
+</section>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.Macros">
+<language name="Assembly Source File">
+<macro>
+<name>STM32F405xx</name><value/>
+</macro>
+<macro>
+<name>ARM_MATH_CM4</name><value/>
+</macro>
+
+</language>
+<language name="C Source File">
+<macro>
+<name>STM32F405xx</name><value/>
+</macro>
+<macro>
+<name>ARM_MATH_CM4</name><value/>
+</macro>
+
+</language>
+<language name="Object File">
+
+</language>
+</section>
+</cdtprojectproperties>
