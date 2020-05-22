@@ -275,7 +275,7 @@ int32_t bcu_get_power (void)
   */
 uint8_t bcu_err_link (void)
 {
-	bcu_step();
+	//bcu_step();
 	if (timers_get_time_left(bcu_connect_time)==0) return(1);
 	else return(0);
 }

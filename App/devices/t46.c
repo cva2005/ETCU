@@ -55,7 +55,7 @@ void t46_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 	            *dp++ = data[2];
 				t46_rx_data.torque = (int32_t)(Torque_Out * 1000);
 				//t46_rx_data.temperature = (int32_t)(*((int16_t *)&data[8]) * 100);
-				t46_rx_data.power = (uint32_t)(Speed_Out * Torque_Out * POWER_FACTOR);
+				t46_rx_data.power = (uint32_t)(Speed_Out * Torque_Out / POWER_FACTOR);
 			}
 		} else if (function == START_MEASURING) { // запуск измерений
 			t46_tx_time = timers_get_finish_time(T46_DATA_CONVERT_TIME);

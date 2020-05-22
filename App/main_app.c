@@ -33,6 +33,7 @@
 #include "t46.h"
 #include "_control.h"
 #include "timers.h"
+#include "servo.h"
 
 stime_t led_blink_time;
 
@@ -59,23 +60,27 @@ void main_app (void) {
 	ds2482_init();
 	modbus_init(1);
 	modbus2_init(2);
-#ifndef NO_SERVO_DRIVER
+#ifndef NO_SPSH_20
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
+#ifndef NO_SPSH_20
 	pc_link_init();
+#endif
 	control_init();
 	led_blink_time = timers_get_finish_time(LED_BLINK_TIME);
 	while (1) {
 		modbus_step();
 		modbus2_step();
-#ifndef NO_SERVO_DRIVER
+#ifndef NO_SPSH_20
 		servotech_link_step();
 #endif
 		CanOpen_step();
+#ifndef NO_SPSH_20
 		pc_link_step();
-#ifndef NO_SERVO_DRIVER
 		spsh20_step();
+#elif !NO_SERVO_DRIVER
+		servo_step();
 #endif
 		bcu_step();
 #ifndef NO_FREQ_DRIVER
