@@ -453,10 +453,8 @@ typedef struct
 		}ao_pc_status_t;
 	#endif
 
-	typedef union //структура сигнала "AO_PC_ERR_MAIN"
-		{
-		struct
-			{
+	typedef union { //структура сигнала "AO_PC_ERR_MAIN"
+		struct {
 			uint8_t no_bcu :1; //нет связи с модулем управления гидротормозом
 			uint8_t no_fc :1; //нет связи с преобразователем часоты
 			uint8_t no_ta :1; //нет связи с сервоприводом педали газа
@@ -471,11 +469,13 @@ typedef struct
 			uint8_t engine_start:1; //ошибка запуска двигателя: двигатель не запускается
 			uint8_t engine_rotate:1; //двигатель не выходит на заданные обороты
 			uint8_t emergancy_stop:1; //нажать "Аварийный стоп"
-			}bit;
+			uint8_t servo_not_init:1; //калибровка сервопривода
+			uint8_t servo_error:1; //ошибка сервопривода
+		} bit;
 		uint8_t byte[4];
 		uint16_t word[2];
 		uint32_t dword;
-		}error_t;
+	} error_t;
 
 	#ifdef CDU //значения сигнала "AI_CU_ERR",  "AI_MP_ERR", "AO_PC_ERR_MP", "AO_PC_ERR_CU"
 	#define	ERR_OVERLOAD		1 //перегрузка тока или напряжения при заряде
