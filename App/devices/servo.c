@@ -6,7 +6,7 @@
 #include "servo.h"
 
 uint32_t FullTime, CurrTime, TaskTime;
-uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrTmpVal;
+uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrFilterOut, CurrTmpVal;
 static stime_t time;
 static servo_st state;
 stime_t err_time; // искл. токов включения СП
@@ -83,7 +83,7 @@ void servo_init(void)
 #ifndef SERVO_MODEL
 	state = SERVO_NOT_INIT;
 	ForwCurrMax = RevCurrMax = ErrCurrMax = CURR_ERR;
-	CurrTmpVal = 0;
+	CurrFilterOut = 0;
 	time = timers_get_finish_time(SERVO_INIT_TIME);
 	set(FORWARD_MOV, ON);
 	err_time = timers_get_finish_time(SERVO_ON_ERR);
@@ -101,6 +101,7 @@ void servo_step(void)
 {
 	uint32_t tmp;
 	mov_t mov = mov_state();
+	CurrFilterOut = CURR_FLT_OUT();
 	if (state == SERVO_NOT_INIT) {
 		tmp = timers_get_time_left(time);
 		if (tmp < INIT_ERROR_TIME) {
@@ -123,7 +124,7 @@ stop_null: 	FullTime = SERVO_INIT_TIME - timers_get_time_left(time);
 			if (FullTime < SERVO_DEL_TIME) return;
 			FullTime -= CORRECT_FULL;
 			CurrTime = 0;
-			FullCount = - ServoCount - (CNT_SAVE_VAL * 4);
+			FullCount = - ServoCount - (CNT_SAVE_VAL * 2);
 			ServoCount = -CNT_SAVE_VAL;
 			curr_null = true;
 			set(REVERS_MOV, OFF);
@@ -171,7 +172,7 @@ cur_add:				tmp = SERVO_CURRENT;
 			time = timers_get_finish_time(SERVO_STEP_TIME);
 			float32_t cnt_pos = (float32_t)ServoCount / (float32_t)FullCount;
 			float32_t time_pos = (float32_t)CurrTime / (float32_t)FullTime;
-			if (abs(time_pos - cnt_pos) > CNT_TIME_ERR) CurrTime = (uint32_t)(cnt_pos *  (float32_t)FullTime);
+			if (fabs(time_pos - cnt_pos) > CNT_TIME_ERR) CurrTime = (uint32_t)(cnt_pos *  (float32_t)FullTime);
 			int32_t diff = TaskTime - CurrTime;
 			if (diff > 0) {
 				if (diff >= SERVO_STEP_TIME) {

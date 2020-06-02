@@ -725,8 +725,11 @@ void set_indication (void) {
 	set(AO_PC_T_ENV_AIR, st(AI_T_AIR));
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));
 	set(AO_PC_H_ENV_AIR, st(AI_H_AIR));
-	//extern int32_t ServoCount;
+	//extern int32_t ServoCount,FullCount;
+	//set(AO_PC_P_ENV_AIR, FullCount * 1000);
 	//set(AO_PC_H_ENV_AIR, ServoCount * 1000); // ToDo!
+	//extern uint32_t CurrFilterOut;
+	//set(AO_PC_H_ENV_AIR, CurrFilterOut * 1000); // ToDo!
 
 	//ток и напряжение АКБ
 	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
@@ -864,7 +867,7 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
  */
 void init_PID (void) {
 #ifdef MODEL_OBJ
-	Speed_PID.Kp = 0.1;
+	Speed_PID.Kp = 0.4;
 	Speed_PID.Ki = SPEED_KI;
 	Speed_PID.Kd = 0.00001;
 	Torque_PID.Kp = 0.15;

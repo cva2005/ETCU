@@ -30,11 +30,13 @@ typedef enum {
 #define CURR_FORW			1900
 #define CURR_ERR			2300
 #define CURR_MIN			1500
-#define CORRECT_CURR		(CurrTmpVal * 10) / 8
+#define CORRECT_CURR		(CurrTmpVal * 12) / 10
 #define SERVO_TIME_ERR		1000
 #define SERVO_ON_ERR		500
 #define CNT_INIT_VAL		10
-#define SERVO_CURRENT 		st(AI_VALVE_POSITION)
+#define FCURR_TAU	 		0.05
+#define CURR_FLT_OUT() 		(uint32_t)((float32_t)CurrFilterOut * (1.0 - FCURR_TAU) + (float32_t)st(AI_VALVE_POSITION) * FCURR_TAU)
+#define SERVO_CURRENT 		CurrFilterOut
 #define CURR_FORW_HIGH 		(SERVO_CURRENT > ForwCurrMax)
 #define CURR_REVR_HIGH		(SERVO_CURRENT > RevCurrMax)
 #define SERVO_CURR_HIGH 	(SERVO_CURRENT > ErrCurrMax)
@@ -42,7 +44,7 @@ typedef enum {
 #define CORRECT_FULL		15000
 #define TRUE_STATE			80
 #define CNT_SAVE_VAL		4
-#define CNT_TIME_ERR		0.01f
+#define CNT_TIME_ERR		0.02f
 
 void servo_init(void);
 void servo_step(void);
@@ -52,6 +54,6 @@ void servo_set_out(float32_t pid_out);
 
 extern stime_t err_time;
 extern bool servo_stop;
-extern uint32_t ErrCurrMax;
+extern uint32_t ErrCurrMax, CurrFilterOut;
 
 #endif /* SERVO_H_ */
