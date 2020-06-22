@@ -79,7 +79,8 @@ void main_app (void) {
 #ifndef NO_SPSH_20
 		pc_link_step();
 		spsh20_step();
-#elif !NO_SERVO_DRIVER
+#endif
+#ifndef NO_SERVO_DRIVER
 		servo_step();
 #endif
 		bcu_step();

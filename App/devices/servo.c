@@ -5,7 +5,6 @@
 #include "bcu.h"
 #include "servo.h"
 
-uint32_t FullTime, CurrTime, TaskTime;
 uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrFilterOut, CurrTmpVal;
 static stime_t time;
 static servo_st state;
@@ -15,97 +14,136 @@ bool curr_null = false;
 bool Pulse = false;
 bool CurrInitForw = false;
 bool CurrInitRev = false;
-int32_t ServoCount = 0;
-int32_t FullCount = 0;
+uint32_t ServoCount = 0;
+float32_t TaskCount = 0, FloatCount = 0;
+int32_t FullCount = CNT_FULL_VAL;
 uint32_t StateCnt = 0;
+uint32_t NullCnt = 0;
+uint32_t FullCnt = 0;
+bool NullState = true;
+bool FullState = false;
+uint32_t CurrDelCnt = 0;
+
+bool null_sens(void)
+{
+	uint8_t in_data = bcu_get_in();
+	bool in_st = (NULL_SENSOR);
+	if (in_st != NullState) {
+			if (NullCnt++ > DSENS_STATE) {
+				NullState = in_st;
+				NullCnt = 0;
+			}
+		} else NullCnt = 0;
+	return NullState;
+}
+
+bool full_sens(void)
+{
+	uint8_t in_data = bcu_get_in();
+	bool in_st = (FULL_SENSOR);
+	if (in_st != FullState) {
+			if (FullCnt++ > DSENS_STATE) {
+				FullState = in_st;
+				FullCnt = 0;
+			}
+		} else FullCnt = 0;
+	return FullState;
+}
+
+void pulse_check(mov_t mov)
+{
+	uint8_t in_data = bcu_get_in();
+	bool pulse_in = in_data & PULSE_MASK;
+	if (pulse_in != Pulse) {
+		if (StateCnt++ >= TRUE_STATE) {
+			StateCnt = 0;
+			Pulse = pulse_in;
+			if (pulse_in)  {
+				if (mov == SERVO_FORWARD) ServoCount++;
+				else ServoCount--;
+				FloatCount = (float32_t)ServoCount;
+			}
+		}
+	} else StateCnt = 0;
+}
 
 mov_t mov_state(void)
 {
-#ifndef SERVO_MODEL
-	uint8_t in_data = bcu_get_in();
-	bool pulse_in = in_data & PULSE_MASK;
-	if (in_data & NULL_MOV_MASK) {
-#else
-	if (CurrTime <= 0) {
-#endif
+	if (null_sens()) {
+		if (st(FORWARD_MOV)) { // положение "0"
+			return SERVO_FORWARD;
+		}
+		if (state != SERVO_NOT_INIT) {
+			ServoCount = 0;
+			FloatCount = 0;
+		}
 stop_null:
-		CurrTime = 0;
 		set(REVERS_MOV, OFF);
 		servo_stop = false;
 		curr_null = true;
 		return SERVO_STOP_NULL;
-#ifndef SERVO_MODEL
-	} else if (in_data & FULL_MOV_MASK) {
-#else
-	} else if (CurrTime >= FullTime) {
-#endif
-		CurrTime = FullTime;
+	} else if (full_sens()) {
+		if (st(REVERS_MOV)) { // положение "MAX"
+			return SERVO_REVERS;
+		}
+		ServoCount = FullCount;
+		FloatCount = (float32_t)FullCount;;
+stop_full:
 		set(FORWARD_MOV, OFF);
 		return SERVO_STOP_FULL;
 	} else if (st(FORWARD_MOV)) {
-		if (pulse_in != Pulse) {
-			if (StateCnt++ >= TRUE_STATE) {
-				Pulse = pulse_in;
-				if (pulse_in)  ServoCount++;
-			}
-		} else StateCnt = 0;
+#ifndef MODEL_OBJ
+		pulse_check(SERVO_FORWARD);
+#endif
 		curr_null = false;
+		/*if (state != SERVO_NOT_INIT) {
+			if (CURR_FORW_HIGH) { // превышение тока открытие
+				ServoCount = FullCount + (CNT_SAVE_VAL * 2);
+				goto stop_full; // коррекция "FULL" по току
+			}
+		}*/
 		return SERVO_FORWARD;
 	} else if (st(REVERS_MOV)) {
-		if (pulse_in != Pulse) {
-			if (StateCnt++ >= TRUE_STATE) {
-				Pulse = pulse_in;
-				if (pulse_in)  ServoCount--;
-			}
-		} else StateCnt = 0;
-		return SERVO_REVERS;
-	} else if (servo_stop && !curr_null) {
-		if (CURR_REVR_HIGH) { // превышение тока закрытие
-			ServoCount = -CNT_SAVE_VAL;
-			goto stop_null;
-		} else {
-			if (ServoCount > 0) { // коррекция положения "0"
-				if (CurrTime == 0) {
-					CurrTime = SERVO_STEP_TIME * ServoCount;
+#ifndef MODEL_OBJ
+		pulse_check(SERVO_REVERS);
+#endif
+		/*if (state != SERVO_NOT_INIT) {
+			if (servo_stop && !curr_null) { // переход в режим "стоп"
+				if (CURR_REVR_HIGH) { // превышение тока закрытие
+					ServoCount = -CNT_SAVE_VAL;
+					goto stop_null; // коррекция "0" по току
 				}
-			} else {
-				ServoCount = 0;
-				goto stop_null;
 			}
-		}
-
+		}*/
+		return SERVO_REVERS;
 	}
 	return SERVO_STOP_ALL;
 }
 
 void servo_init(void)
 {
-#ifndef SERVO_MODEL
+#ifdef MODEL_OBJ
+	state = SERVO_READY;
+#else
 	state = SERVO_NOT_INIT;
 	ForwCurrMax = RevCurrMax = ErrCurrMax = CURR_ERR;
 	CurrFilterOut = 0;
 	time = timers_get_finish_time(SERVO_INIT_TIME);
 	set(FORWARD_MOV, ON);
 	err_time = timers_get_finish_time(SERVO_ON_ERR);
-#else
-	set(FORWARD_MOV, OFF);
-	set(REVERS_MOV, OFF);
-	state = SERVO_READY;
-	time = timers_get_finish_time(SERVO_STEP_TIME);
-	FullTime = SERVO_INIT_TIME / 2;
-	CurrTime = TaskTime = 0;
 #endif
 }
 
 void servo_step(void)
 {
-	uint32_t tmp;
 	mov_t mov = mov_state();
-	CurrFilterOut = CURR_FLT_OUT();
+	if (timers_get_time_left(err_time) == 0) {
+		CurrFilterOut = CURR_FLT_OUT();
+	}
 	if (state == SERVO_NOT_INIT) {
-		tmp = timers_get_time_left(time);
-		if (tmp < INIT_ERROR_TIME) {
-			if (ServoCount == 0) tmp = 0;
+		uint32_t tmp = timers_get_time_left(time);
+		if (!ServoCount && (tmp < INIT_ERROR_TIME)) {
+			tmp = 0;
 		}
 		if (tmp == 0) {
 			state = SERVO_STOP_ERR;
@@ -114,22 +152,18 @@ void servo_step(void)
 			return;
 		}
 		if (mov == SERVO_STOP_FULL) {
-stop_full: 	time = timers_get_finish_time(SERVO_INIT_TIME);
+stop_full:
+			time = timers_get_finish_time(SERVO_INIT_TIME);
 			ServoCount = 0;
 			set(FORWARD_MOV, OFF);
 			set(REVERS_MOV, ON);
 			err_time = timers_get_finish_time(SERVO_ON_ERR);
 		} else if (mov == SERVO_STOP_NULL) {
-stop_null: 	FullTime = SERVO_INIT_TIME - timers_get_time_left(time);
-			if (FullTime < SERVO_DEL_TIME) return;
-			FullTime -= CORRECT_FULL;
-			CurrTime = 0;
+stop_null:
 			FullCount = - ServoCount - (CNT_SAVE_VAL * 2);
 			ServoCount = -CNT_SAVE_VAL;
-			curr_null = true;
-			set(REVERS_MOV, OFF);
 			state = SERVO_READY;
-			time = timers_get_finish_time(SERVO_STEP_TIME);
+			time = timers_get_finish_time( STEP_TIME_MS);
 		} else if (CURR_FORW_HIGH) {
 			if (timers_get_time_left(err_time) == 0) {
 				if (mov == SERVO_FORWARD) {
@@ -144,14 +178,15 @@ stop_null: 	FullTime = SERVO_INIT_TIME - timers_get_time_left(time);
 			if (timers_get_time_left(err_time) > 0) return;
 			if (CurrInitForw == false) {
 				if (mov == SERVO_FORWARD) {
-					if (ServoCount > CNT_INIT_VAL) {
+					if (CurrDelCnt++ > CNT_INIT_VAL) {
 						ForwCurrMax = CORRECT_CURR;
+						CurrDelCnt = 0;
 						CurrInitForw = true;
 					} else goto cur_add;
 				}
 			} else if (CurrInitRev == false) {
 				if (mov == SERVO_REVERS) {
-					if (ServoCount < CNT_INIT_VAL) {
+					if (CurrDelCnt++ > CNT_INIT_VAL) {
 						CurrInitRev = true;
 						RevCurrMax = CORRECT_CURR;
 						if (RevCurrMax > ForwCurrMax) {
@@ -169,40 +204,58 @@ cur_add:				tmp = SERVO_CURRENT;
 		}
 	} else { // state == SERVO_READY
 		if (timers_get_time_left(time) == 0) {
-			time = timers_get_finish_time(SERVO_STEP_TIME);
-			float32_t cnt_pos = (float32_t)ServoCount / (float32_t)FullCount;
-			float32_t time_pos = (float32_t)CurrTime / (float32_t)FullTime;
-			if (fabs(time_pos - cnt_pos) > CNT_TIME_ERR) CurrTime = (uint32_t)(cnt_pos *  (float32_t)FullTime);
-			int32_t diff = TaskTime - CurrTime;
+			time = timers_get_finish_time(STEP_TIME_MS);
+			float32_t diff = TaskCount - FloatCount;
 			if (diff > 0) {
-				if (diff >= SERVO_STEP_TIME) {
-					CurrTime += SERVO_STEP_TIME;
-					set(FORWARD_MOV, ON);
-					set(REVERS_MOV, OFF);
-					err_time = timers_get_finish_time(SERVO_ON_ERR);
-				} else if (state == SERVO_FORWARD) {
-					time.del += diff;
-				} else goto servo_stop;
-			} else { // diff <= 0
-				if (diff <= -SERVO_STEP_TIME) {
-					CurrTime -= SERVO_STEP_TIME;
-					set(FORWARD_MOV, OFF);
-					set(REVERS_MOV, ON);
-					err_time = timers_get_finish_time(SERVO_ON_ERR);
-				} else if (state == SERVO_REVERS) {
-					time.del += diff;
-				} else {
-servo_stop:
-					if (state == SERVO_FORWARD) {
-						if (CurrTime == FullTime) {
-						}
-					} else if (state == SERVO_REVERS) {
-						if (CurrTime == 0) {
-						}
+				if (diff > STEP_CNT_DEF) {
+					FloatCount += STEP_CNT_DEF;
+					if (mov != SERVO_FORWARD) {
+						set(FORWARD_MOV, ON);
+						set(REVERS_MOV, OFF);
+						err_time = timers_get_finish_time(SERVO_ON_ERR);
 					}
-					set(FORWARD_MOV, OFF);
-					set(REVERS_MOV, OFF);
+				} else { // 0 < diff < STEP_CNT_DEF
+					if (mov == SERVO_FORWARD) {
+						FloatCount += diff;
+						uint32_t del = STEP_TIME_MS * (1.0 + diff);
+						time = timers_get_finish_time(del);
+					} else goto servo_stop;
 				}
+				if (FloatCount >= (float32_t)FullCount) {
+					FloatCount = (float32_t)FullCount;
+					ServoCount = FullCount;
+					goto servo_stop;
+				}
+#ifdef MODEL_OBJ
+				ServoCount = (uint32_t)(FloatCount + 0.5f);
+#endif
+			} else if (diff < 0) {
+				if (diff < -STEP_CNT_DEF) {
+					FloatCount -= STEP_CNT_DEF;
+					if (mov != SERVO_REVERS) {
+						set(FORWARD_MOV, OFF);
+						set(REVERS_MOV, ON);
+						err_time = timers_get_finish_time(SERVO_ON_ERR);
+					}
+				} else { // -STEP_CNT_DEF < diff < 0
+					if (mov == SERVO_REVERS) {
+						FloatCount += diff;
+						uint32_t del = STEP_TIME_MS * (1.0 - diff);
+						time = timers_get_finish_time(del);
+					} else goto servo_stop;
+				}
+				if (FloatCount <= 0) {
+					FloatCount = 0;
+					ServoCount = 0;
+					goto servo_stop;
+				}
+#ifdef MODEL_OBJ
+				ServoCount = (uint32_t)(FloatCount + 0.5f);
+#endif
+			} else { // diff == 0
+servo_stop:
+				set(FORWARD_MOV, OFF);
+				set(REVERS_MOV, OFF);
 			}
 		}
 	}
@@ -216,14 +269,14 @@ servo_st servo_state(void)
 /* servo position in % */
 float32_t servo_get_pos(void)
 {
-	return ((float32_t)CurrTime * 100.000) / (float32_t)FullTime;
+	return (FloatCount * 100.000) / (float32_t)FullCount;
 }
 
 /* set position of control */
 void servo_set_out(float32_t pid_out)
 {
-	float32_t task = pid_out * (float32_t)FullTime;
-	TaskTime = (uint32_t)(task * SERVO_MUL);
-	if (TaskTime > FullTime) TaskTime = FullTime;
-	if (TaskTime < 0) TaskTime = 0;
+	float32_t task = pid_out * (float32_t)FullCount;
+	TaskCount = task * SERVO_MUL;
+	if (TaskCount > (float32_t)FullCount) TaskCount = FullCount;
+	if (TaskCount < 0) TaskCount = 0;
 }

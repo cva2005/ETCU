@@ -265,7 +265,8 @@ void control_init(void) {
 #endif
 #ifndef NO_SPSH_20
 	spsh20_init(SPSH20_ADR);
-#elif !NO_SERVO_DRIVER
+#endif
+#ifndef NO_SERVO_DRIVER
 	servo_init();
 #endif
 	bcu_init(NODE_ID_BCU);
@@ -411,7 +412,8 @@ servo_err:
 		state.step = ST_STOP_ERR;
 		cmd.opr = ST_STOP_ERR;
 	}
-#elif !NO_SERVO_DRIVER
+#endif
+#ifndef NO_SERVO_DRIVER
 	servo_st srv_st = servo_state();
 	sg_st.ta.i.a[1] = (int32_t)srv_st;
 	sg_st.ta.i.a[0] = ERROR_CODE;
@@ -532,8 +534,9 @@ void work_step (void) {
 				if (timers_get_time_left(time.alg) == 0) {
 #ifndef NO_BATTERY
 					if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
-#elif NO_SERVO_DRIVER
+#ifdef NO_SERVO_DRIVER
 						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
+#endif
 #endif
 						set(DO_STARTER, ON);
 #ifdef MODEL_OBJ
@@ -707,11 +710,20 @@ void set_indication (void) {
 	}
 	set(AO_PC_T_OIL_OUT, val); // Уровень масла XP7
 	//датчики локального нагрева
+#ifdef SERVO_DEBUG
+	extern uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrFilterOut, CurrTmpVal;
+	set(AO_PC_T_EXT1, ForwCurrMax * 10);
+	set(AO_PC_T_EXT2, RevCurrMax * 10);
+	set(AO_PC_T_EXT3, ErrCurrMax * 10);
+	set(AO_PC_T_EXT4, CurrFilterOut * 10);
+	set(AO_PC_T_EXT5, CurrTmpVal * 10);
+#else
 	set(AO_PC_T_EXT1, st(AI_T_EXT1));
 	set(AO_PC_T_EXT2, st(AI_T_EXT2));
 	set(AO_PC_T_EXT3, st(AI_T_EXT3));
 	set(AO_PC_T_EXT4, st(AI_T_EXT4));
 	set(AO_PC_T_EXT5, st(AI_T_EXT5));
+#endif
 	set(AO_PC_T_EXT6, st(AI_T_EXT6));
 	set(AO_PC_T_EXT7, st(AI_T_EXT7));
 	set(AO_PC_T_EXT8, st(AI_T_EXT8));
@@ -722,14 +734,19 @@ void set_indication (void) {
 	//set(AO_PC_T_CHARGE, st(AI_T_CHARGE)); //Аналоговый: Температура наддувочного воздуха
 	set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
 	//параметры атмосферы
+#ifdef SERVO_DEBUG
+	extern int32_t ServoCount, FullCount, TaskCount;
+	extern int32_t ServoCount, FullCount, TaskCount;
+	set(AO_PC_T_ENV_AIR, TaskCount * 1000);
+	set(AO_PC_P_ENV_AIR, FullCount * 1000);
+	set(AO_PC_H_ENV_AIR, ServoCount * 1000);
+	//extern uint32_t CurrFilterOut;
+	//set(AO_PC_H_ENV_AIR, CurrFilterOut * 1000);
+#else
 	set(AO_PC_T_ENV_AIR, st(AI_T_AIR));
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));
 	set(AO_PC_H_ENV_AIR, st(AI_H_AIR));
-	//extern int32_t ServoCount,FullCount;
-	//set(AO_PC_P_ENV_AIR, FullCount * 1000);
-	//set(AO_PC_H_ENV_AIR, ServoCount * 1000); // ToDo!
-	//extern uint32_t CurrFilterOut;
-	//set(AO_PC_H_ENV_AIR, CurrFilterOut * 1000); // ToDo!
+#endif
 
 	//ток и напряжение АКБ
 	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
@@ -807,7 +824,8 @@ void work_stop (void) {
 	init_PID();
 #ifndef NO_SPSH_20
 	spsh20_set_pos(0);
-#elif !NO_SERVO_DRIVER
+#endif
+#ifndef NO_SERVO_DRIVER
 	servo_set_out(0);
 #endif
 #ifdef MODEL_OBJ
@@ -857,9 +875,11 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 #define PID_RESET				1
 #define PID_NO_RESET			0
 #ifdef MODEL_OBJ
-	#define SPEED_KI			0.0009f
+	#define SPEED_KP			0.12f
+	#define SPEED_KI			0.0012f
 #else
-	#define SPEED_KI			0.001f
+	#define SPEED_KP			0.12f
+	#define SPEED_KI			0.0012f
 #endif
 
 /*
@@ -867,16 +887,22 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
  */
 void init_PID (void) {
 #ifdef MODEL_OBJ
-	Speed_PID.Kp = 0.4;
+#ifndef NO_SERVO_DRIVER
+	Speed_PID.Kp = SPEED_KP;
 	Speed_PID.Ki = SPEED_KI;
-	Speed_PID.Kd = 0.00001;
+	Speed_PID.Kd = 0.0002;
+#else
+	Speed_PID.Kp = 0.3;
+	Speed_PID.Ki = 0.035;
+	Speed_PID.Kd = 0.0001;
+#endif
 	Torque_PID.Kp = 0.15;
 	Torque_PID.Ki = 0.1;
 	Torque_PID.Kd = 0.001;
 #else
-	Speed_PID.Kp = 0.30;
+	Speed_PID.Kp = SPEED_KP;
 	Speed_PID.Ki = SPEED_KI;
-	Speed_PID.Kd = 0.0001;
+	Speed_PID.Kd = 0.0;
 	Torque_PID.Kp = 0.10;
 	Torque_PID.Ki = 0.01;
 	Torque_PID.Kd = 0.0001;
@@ -886,13 +912,17 @@ void init_PID (void) {
 }
 
 #define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
-#define TORQUE_MAX			600.0f // Нм
+#define TORQUE_MAX			400.0f // Нм
+#define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
-#define TORQUE_FACTOR		0.6f
 #define SPEED_MUL			-40.00f
-#define SPEED_FACT			50.0f
+#define SPEED_FACT			45.0f
 #define SERVO_FACT			1.20f
-#define ZONE_DEAD_REF		50.0f
+#ifdef SERVO_DEBUG
+	#define ZONE_DEAD_REF		80.0f
+#else
+	#define ZONE_DEAD_REF		50.0f
+#endif
 /*
  * Управление контуром оборотов
  */
@@ -903,11 +933,14 @@ void Speed_loop (void) {
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
 #ifndef NO_SERVO_DRIVER
-		float32_t tmp = abs(task);
-		if (servo_get_pos() >= 100.0) {
+		float32_t tmp = fabs(task);
+		torq_corr = (Torque_Out / TORQUE_MAX);
+		if (servo_get_pos() >= 99.0) {
 			Speed_PID.Ki = 0;
+			//arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		} else {
-			Speed_PID.Ki = SPEED_KI * exp(-tmp / SPEED_MAX);
+			Speed_PID.Ki = SPEED_KI * exp(-tmp / SPEED_MAX + torq_corr);
+			Speed_PID.Kp = SPEED_KP * (1 + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		if (tmp < ZONE_DEAD_REF) task = 0;
@@ -916,11 +949,16 @@ void Speed_loop (void) {
 #ifndef NO_SPSH_20
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);
-#elif !NO_SERVO_DRIVER
+#endif
+#ifndef NO_SERVO_DRIVER
+#ifdef MODEL_OBJ
+		if (task) servo_set_out(pi_out * SERVO_FACT);
+#else
 		servo_set_out(pi_out * SERVO_FACT);
 #endif
+#endif
 #ifdef MODEL_OBJ
-		torq_corr = (Torque_Out / TORQUE_MAX) * TORQUE_FACTOR;
+		torq_corr *= TORQUE_FACTOR;
 #ifndef NO_SERVO_DRIVER
 		pi_out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
 #endif
