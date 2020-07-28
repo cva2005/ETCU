@@ -221,6 +221,15 @@ enum {
 //----------------------------
 	SIG_END,
 };
+#define SAVE_PID_VAL		DI_PC_SET_TIME	// Сигнал: применить коэффициенты ПИД-регуляторов
+#define AI_PC_SPEED_KP_KI	AI_PC_DATE
+#define AI_PC_TORQUE_KP_KI	AI_PC_TIME
+#define AO_PC_SPEED_KP_KI	AO_PC_DATE
+#define AO_PC_TORQUE_KP_KI	AO_PC_TIME
+#define AI_PC_SPEED_KI		(st(AI_PC_SPEED_KP_KI) & 0xFFFF)
+#define AI_PC_SPEED_KP		(st(AI_PC_SPEED_KP_KI) >> 16)
+#define AI_PC_TORQUE_KI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
+#define AI_PC_TORQUE_KP		(st(AI_PC_TORQUE_KP_KI) >> 16)
 
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct

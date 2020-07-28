@@ -92,7 +92,7 @@ stop_full:
 		set(FORWARD_MOV, OFF);
 		return SERVO_STOP_FULL;
 	} else if (st(FORWARD_MOV)) {
-#ifndef MODEL_OBJ
+#ifndef MODEL_NO_SERVO
 		pulse_check(SERVO_FORWARD);
 #endif
 		curr_null = false;
@@ -104,7 +104,7 @@ stop_full:
 		}*/
 		return SERVO_FORWARD;
 	} else if (st(REVERS_MOV)) {
-#ifndef MODEL_OBJ
+#ifndef MODEL_NO_SERVO
 		pulse_check(SERVO_REVERS);
 #endif
 		/*if (state != SERVO_NOT_INIT) {
@@ -122,7 +122,7 @@ stop_full:
 
 void servo_init(void)
 {
-#ifdef MODEL_OBJ
+#ifdef MODEL_NO_SERVO
 	state = SERVO_READY;
 #else
 	state = SERVO_NOT_INIT;
@@ -217,7 +217,7 @@ cur_add:				tmp = SERVO_CURRENT;
 				} else { // 0 < diff < STEP_CNT_DEF
 					if (mov == SERVO_FORWARD) {
 						FloatCount += diff;
-						uint32_t del = STEP_TIME_MS * (1.0 + diff);
+						uint32_t del = STEP_TIME_MS * diff;
 						time = timers_get_finish_time(del);
 					} else goto servo_stop;
 				}
@@ -240,7 +240,7 @@ cur_add:				tmp = SERVO_CURRENT;
 				} else { // -STEP_CNT_DEF < diff < 0
 					if (mov == SERVO_REVERS) {
 						FloatCount += diff;
-						uint32_t del = STEP_TIME_MS * (1.0 - diff);
+						uint32_t del = STEP_TIME_MS * -diff;
 						time = timers_get_finish_time(del);
 					} else goto servo_stop;
 				}

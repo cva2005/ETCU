@@ -31,9 +31,7 @@ typedef enum {
 #define STEP_CNT_DEF		STEP_TIME_SEC / CNT_TIME_DEF // оборотов привода за 1 шаг управления
 #define INIT_ERROR_TIME		(SERVO_INIT_TIME - 4000)
 #define SERVO_MUL			0.0012f
-#define CURR_REV			2150
-#define CURR_FORW			2150
-#define CURR_ERR			2300
+#define CURR_ERR			2400
 #define CURR_MIN			1500
 #define CORRECT_CURR		(CurrTmpVal * 13) / 10
 #define SERVO_TIME_ERR		1000

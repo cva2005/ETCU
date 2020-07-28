@@ -51,6 +51,26 @@ void Torque_loop (torq_val_t val);
 	void init_obj (void);
 #endif
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
+#define PID_RESET				1
+#define PID_NO_RESET			0
+#ifdef MODEL_OBJ
+	#define SPEED_KP			0.12f
+	#define SPEED_KI			0.0012f
+	#define SPEED_KD			0.0002f
+	#define TORQUE_KP			0.15f
+	#define TORQUE_KI			0.08f
+	#define TORQUE_KD			0.001f
+#else
+	#define SPEED_KP			0.12f
+	#define SPEED_KI			0.0012f
+	#define SPEED_KD			0.0002f
+	#define TORQUE_KP			0.10f
+	#define TORQUE_KI			0.01f
+	#define TORQUE_KD			0.0001f
+#endif
+float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
+float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
+
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -234,7 +254,6 @@ void sensors_config (void) {
 void control_init(void) {
 	uint32_t crcj;
 
-	init_PID(); // Регуляторы контуров управления
 	if (!flash_data_rd(&sig_cfg[0].byte[0], sizeof(sig_cfg), 0))
 		signals_start_cfg(); //прочитать таблицу описания
 	if (!flash_data_rd((int8_t*) (&sg_st.pc.cfg), sizeof(sg_st.pc.cfg), 1))
@@ -245,6 +264,8 @@ void control_init(void) {
 	//настроить таймеры алгоритма управления
 	//time.key_delay=timers_get_finish_time(0);
 	memset((uint8_t*) (&time), 0, sizeof(time));
+	set(AO_PC_SPEED_KP_KI, 0x00640064); // множители = 1.0 -> PC
+	set(AO_PC_TORQUE_KP_KI, 0x00640064);
 	//настроить датчики
 	pulse_sens_init(1, 1);
 	pulse_sens_init(2, 2);
@@ -294,8 +315,8 @@ void read_devices (void) {
  	pc_device_step();
 //----данные контроллера
 	//датчики времени
- 	sg_st.etcu.i.a[ETCU_AI_TIME]=rtc_sens_get_time();
- 	sg_st.etcu.i.a[ETCU_AI_DATE]=rtc_sens_get_date();
+ 	//sg_st.etcu.i.a[ETCU_AI_TIME]=rtc_sens_get_time();
+ 	//sg_st.etcu.i.a[ETCU_AI_DATE]=rtc_sens_get_date();
  	//датчики питания
 	sg_st.etcu.i.a[ETCU_AI_5V]=power_get_5v();
 	sg_st.etcu.i.a[ETCU_AI_VBAT]=power_get_vbat();
@@ -500,8 +521,15 @@ void read_keys (void) {
 void work_step (void) {
 	int32_t val;
 
-	if (st(DI_PC_SET_TIME))
-		rtc_sens_set_datetime(st(AI_PC_DATE),st(AI_PC_TIME));
+	if (st(SAVE_PID_VAL)) {
+		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
+		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
+		SpeedKp = SPEED_KP * (float32_t)(AI_PC_SPEED_KP) / 100.0;
+		SpeedKi = SPEED_KI * (float32_t)(AI_PC_SPEED_KI) / 100.0;
+		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
+		TorqueKi = TORQUE_KI * (float32_t)(AI_PC_TORQUE_KI) / 100.0;
+		init_PID(); // Регуляторы контуров управления
+	}
 //--------------------ОБКАТКА----------------------------
 	if (cmd.opr != state.opr) {
 		state.opr = cmd.opr;
@@ -524,6 +552,11 @@ void work_step (void) {
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
 			if (state.step == ST_STOP) {
+				/*SpeedKp = SPEED_KP * (float32_t)st(AI_PC_SPEED_KP) / 100.0;
+				SpeedKi = SPEED_KI * (float32_t)st(AI_PC_SPEED_KI) / 100.0;
+				TorqueKp = TORQUE_KP * (float32_t)st(AI_PC_TORQUE_KP) / 100.0;
+				TorqueKi = TORQUE_KI * (float32_t)st(AI_PC_TORQUE_KI) / 100.0;
+				init_PID(); // Регуляторы контуров управления*/
 				set(DO_OIL_PUMP, ON);
 				set(DO_FUEL_PUMP, ON);
 
@@ -770,8 +803,8 @@ void set_indication (void) {
 	set(AO_PC_P_BRAKE,	st(AI_P_OIL_BRAKE)); //Аналоговый: давление в гидротормозе
 	set(AO_PC_SET_BRAKE, st(AO_HYDROSTATION));	//Аналоговый: Установленная мощность гидротормоза в м%
 	//время и дата
-	set(AO_PC_TIME, rtc_sens_get_time());
-	set(AO_PC_DATE, rtc_sens_get_date());
+	//set(AO_PC_TIME, rtc_sens_get_time());
+	//set(AO_PC_DATE, rtc_sens_get_date());
 //---------------ламочки
 	set(DO_PC_STARTER, st(DO_STARTER));					//Сигнал: Стратер
 	set(DO_PC_COOLANT_FAN, st(DO_COOLANT_FAN));			//Сигнал: Вентилятор ОЖ
@@ -872,41 +905,16 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 }
 #endif
 
-#define PID_RESET				1
-#define PID_NO_RESET			0
-#ifdef MODEL_OBJ
-	#define SPEED_KP			0.12f
-	#define SPEED_KI			0.0012f
-#else
-	#define SPEED_KP			0.12f
-	#define SPEED_KI			0.0012f
-#endif
-
 /*
  * Инициализация контуров регулирования
  */
 void init_PID (void) {
-#ifdef MODEL_OBJ
-#ifndef NO_SERVO_DRIVER
-	Speed_PID.Kp = SPEED_KP;
-	Speed_PID.Ki = SPEED_KI;
-	Speed_PID.Kd = 0.0002;
-#else
-	Speed_PID.Kp = 0.3;
-	Speed_PID.Ki = 0.035;
-	Speed_PID.Kd = 0.0001;
-#endif
-	Torque_PID.Kp = 0.15;
-	Torque_PID.Ki = 0.1;
-	Torque_PID.Kd = 0.001;
-#else
-	Speed_PID.Kp = SPEED_KP;
-	Speed_PID.Ki = SPEED_KI;
-	Speed_PID.Kd = 0.0;
-	Torque_PID.Kp = 0.10;
-	Torque_PID.Ki = 0.01;
-	Torque_PID.Kd = 0.0001;
-#endif
+	Speed_PID.Kp = SpeedKp;
+	Speed_PID.Ki = SpeedKi;
+	Speed_PID.Kd = SPEED_KD;
+	Torque_PID.Kp = TorqueKp;
+	Torque_PID.Ki = TorqueKi;
+	Torque_PID.Kd = TORQUE_KD;
 	arm_pid_init_f32(&Speed_PID, PID_RESET);
 	arm_pid_init_f32(&Torque_PID, PID_RESET);
 }
@@ -935,12 +943,11 @@ void Speed_loop (void) {
 #ifndef NO_SERVO_DRIVER
 		float32_t tmp = fabs(task);
 		torq_corr = (Torque_Out / TORQUE_MAX);
-		if (servo_get_pos() >= 99.0) {
+		if ((servo_get_pos() >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
-			//arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		} else {
-			Speed_PID.Ki = SPEED_KI * exp(-tmp / SPEED_MAX + torq_corr);
-			Speed_PID.Kp = SPEED_KP * (1 + torq_corr);
+			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
+			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		if (tmp < ZONE_DEAD_REF) task = 0;
