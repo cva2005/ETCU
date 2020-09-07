@@ -20,6 +20,7 @@
 #include "can_1.h"
 #include "can_2.h"
 #include "canopen.h"
+#include "J1939.h"
 #include "modbus.h"
 #include "modbus2.h"
 #include "servotech_link.h"
@@ -30,6 +31,7 @@
 #include "ds18b20.h"
 #include "spsh20.h"
 #include "nl_3dpas.h"
+#include "mu110_6U.h"
 #include "t46.h"
 #include "_control.h"
 #include "timers.h"
@@ -52,7 +54,7 @@ void main_app (void) {
 	rs485_1_init(38400);
 	rs485_2_init(115200);
 	wifi_hf_init(115200);//wifi_hf_init(460800);
-	can_1_init(CAN_1_SPEED_500K);
+	can_1_init(CAN_1_SPEED_250K);
 	can_2_init(CAN_2_SPEED_250K);
 	pulse_in_init(1);
 	pulse_in_init(2);
@@ -60,11 +62,14 @@ void main_app (void) {
 	ds2482_init();
 	modbus_init(1);
 	modbus2_init(2);
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
-#ifndef NO_SPSH_20
+#ifdef ECU_CONTROL
+	canJ1939_init();
+#endif
+#ifdef SPSH_20_CONTROL
 	pc_link_init();
 #endif
 	control_init();
@@ -72,15 +77,16 @@ void main_app (void) {
 	while (1) {
 		modbus_step();
 		modbus2_step();
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#ifndef NO_SPSH_20
+		J1939_step();
+#ifdef SPSH_20_CONTROL
 		pc_link_step();
 		spsh20_step();
 #endif
-#ifndef NO_SERVO_DRIVER
+#ifdef SERVO_CONTROL
 		servo_step();
 #endif
 		bcu_step();
@@ -96,6 +102,7 @@ void main_app (void) {
 		t46_step();
 #endif
 		control_step();
+		mu6u_step();
 		if (timers_get_time_left(led_blink_time) == 0) {
 			HAL_GPIO_TogglePin(LED_MODE_GPIO_Port, LED_MODE_Pin);
 			led_blink_time = timers_get_finish_time(LED_BLINK_TIME);

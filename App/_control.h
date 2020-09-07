@@ -1,14 +1,9 @@
-/*
- * _control.h
- *
- *  Created on: 12 янв. 2016 г.
- *      Author: Перчиц А.Н.
- */
-
 #ifndef APP__CONTROL_H_
 #define APP__CONTROL_H_
 #include "_signals.h"
+#include "arm_math.h"
 
+#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #define ERROR_CODE					0x7FFFFFFF
 #define DEF_KEY_DELAY				500		//Антидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мА
@@ -51,6 +46,8 @@ typedef struct {
 #define NODE_ID_FC	2	//Адрес CanOpen/ModBus преобразователя частоты
 #define SPSH20_ADR	1	//Адрес сервопривода
 #define ADR_NL_3DPAS 1	//Адрес ModBus датчика параметров атмосферы NL-3DPAS
+#define ADR_MV8A 	3	//Адрес ModBus аналогового модуля MV110-8A
+#define ADR_MU6U 	2	//Адрес ModBus DAC модуля MU110-6U
 #define ADR_T46 	1	//Адрес ModBus датчика крутящего момента
 #define ADR_CDU		1	//Адрес CDUlink зарядно-разрядного устйроства
 

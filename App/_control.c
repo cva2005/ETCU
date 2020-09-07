@@ -7,7 +7,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "arm_math.h"
 #include "timers.h"
 #include "_control.h"
 #include "dio.h"
@@ -19,6 +18,7 @@
 #include "atv61.h"
 #include "spsh20.h"
 #include "nl_3dpas.h"
+#include "mu110_6U.h"
 #include "t46.h"
 #include "ds18b20.h"
 #include "power.h"
@@ -30,6 +30,7 @@
 #include "p_mm370.h"
 #include "p_745_3829.h"
 #include "servo.h"
+#include "ecu.h"
 
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
@@ -53,6 +54,23 @@ void Torque_loop (torq_val_t val);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
+#ifdef ECU_CONTROL
+#ifdef MODEL_OBJ
+	#define SPEED_KP			2.00f
+	#define SPEED_KI			0.1f
+	#define SPEED_KD			0.0002f
+	#define TORQUE_KP			0.15f
+	#define TORQUE_KI			0.08f
+	#define TORQUE_KD			0.001f
+#else
+	#define SPEED_KP			1.00f
+	#define SPEED_KI			0.05f
+	#define SPEED_KD			0.0002f
+	#define TORQUE_KP			0.10f
+	#define TORQUE_KI			0.01f
+	#define TORQUE_KD			0.0001f
+#endif
+#else
 #ifdef MODEL_OBJ
 	#define SPEED_KP			0.12f
 	#define SPEED_KI			0.0012f
@@ -67,6 +85,7 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 	#define TORQUE_KP			0.10f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
+#endif
 #endif
 float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
@@ -281,13 +300,14 @@ void control_init(void) {
 	ds18b20_init(8);
 #endif
 	nl_3dpas_init(ADR_NL_3DPAS);
+	mu6u_init(ADR_MU6U);
 #ifndef NO_TORQ_DRIVER
 	t46_init(ADR_T46);
 #endif
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 	spsh20_init(SPSH20_ADR);
 #endif
-#ifndef NO_SERVO_DRIVER
+#ifdef SERVO_DRIVER
 	servo_init();
 #endif
 	bcu_init(NODE_ID_BCU);
@@ -385,7 +405,11 @@ void read_devices (void) {
 		sg_st.bcu.i.d=bcu_get_in();
 		//sg_st.bcu.i.a[0] = bcu_get_t();
 		//sg_st.bcu.i.a[0] = bcu_get_p();
+#ifdef NO_BCU_SENS
+		t_bcu = 50000;
+#else
 		t_bcu = (bcu_get_t() * 24) / 12 + 7000;
+#endif
 		if ((t_bcu > 110000) || (t_bcu < 10000)) t_bcu = ERROR_CODE;
 		sg_st.bcu.i.a[1] = t_bcu; // температура вместо давления в гидротормозе
 		sg_st.bcu.i.a[2] = bcu_get_position();
@@ -421,7 +445,22 @@ void read_devices (void) {
 	}
 #endif
 //----данные сервопривода
-#ifndef NO_SPSH_20
+#ifdef ECU_CONTROL
+#ifdef MU6U_DEBUG
+	sg_st.ta.i.a[0] = EcuServoPos();
+#else
+	if (EcuGetError() == 0) {
+		//sg_st.ta.i.a[1] = spsh20_get_status();
+		//if (sg_st.ta.i.a[1] != SERVO_OK) goto servo_err;
+		sg_st.ta.i.a[0] = EcuServoPos();
+	} else {
+		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
+		error.bit.no_ta = 1;
+		state.step = ST_STOP_ERR;
+		cmd.opr = ST_STOP_ERR;
+	}
+#endif
+#elif SPSH_20_CONTROL
 	if (spsh20_err_link() == 0) {
 		sg_st.ta.i.a[1] = spsh20_get_status();
 		if (sg_st.ta.i.a[1] != SERVO_OK) goto servo_err;
@@ -433,8 +472,7 @@ servo_err:
 		state.step = ST_STOP_ERR;
 		cmd.opr = ST_STOP_ERR;
 	}
-#endif
-#ifndef NO_SERVO_DRIVER
+#elif SERVO_CONTROL
 	servo_st srv_st = servo_state();
 	sg_st.ta.i.a[1] = (int32_t)srv_st;
 	sg_st.ta.i.a[0] = ERROR_CODE;
@@ -567,7 +605,7 @@ void work_step (void) {
 				if (timers_get_time_left(time.alg) == 0) {
 #ifndef NO_BATTERY
 					if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
-#ifdef NO_SERVO_DRIVER
+#ifdef SERVO_CONTROL
 						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
 #endif
 #endif
@@ -620,7 +658,7 @@ void work_step (void) {
 					}
 				}
 #endif // MODEL_OBJ
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 				int32_t pos = st(AI_SERVO_POSITION);
 				if (pos > MAX_SERVO_POSITION || pos < MIN_SERVO_POSITION) {
 					error.bit.engine_start = 1; // сбой управления сервоприводом
@@ -731,7 +769,11 @@ void set_indication (void) {
 		else val = ERROR_CODE;
 	}
 	set(AO_PC_FUEL_LEVEL, val); // Уровень топлива XP8
+#ifdef NO_BCU_SENS
+	val = 50000;
+#else
 	val = (st(AI_T_OIL_OUT) * 100000) / 92; // Уровень масла XP7
+#endif
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
 		else val = ERROR_CODE;
@@ -786,7 +828,7 @@ void set_indication (void) {
 	set(AO_PC_CURRENT, val);
 	set(AO_PC_VOLTAGE, st(AI_U_AKB));
 	//сигналы педали газа
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 #if MIN_SERVO_POSITION < 0
 	#define SERVO_MOVE (float32_t)(MIN_SERVO_POSITION - MAX_SERVO_POSITION)
 #else
@@ -855,11 +897,12 @@ void work_stop (void) {
 	}
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
-#ifndef NO_SPSH_20
+#ifdef SPSH_20_CONTROL
 	spsh20_set_pos(0);
-#endif
-#ifndef NO_SERVO_DRIVER
+#elif SERVO_CONTROL
 	servo_set_out(0);
+#else //ECU_CONTROL
+	EcuControl(0);
 #endif
 #ifdef MODEL_OBJ
 	set(AI_FC_FREQ, 0);
@@ -919,16 +962,17 @@ void init_PID (void) {
 	arm_pid_init_f32(&Torque_PID, PID_RESET);
 }
 
-#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
 #define SPEED_MUL			-40.00f
 #define SPEED_FACT			45.0f
 #define SERVO_FACT			1.20f
-#ifdef SERVO_DEBUG
+#ifdef ECU_CONTROL
+	#define ZONE_DEAD_REF		25.0f
+#elif SERVO_DEBUG
 	#define ZONE_DEAD_REF		80.0f
-#else
+#elif  SERVO_CONTROL
 	#define ZONE_DEAD_REF		50.0f
 #endif
 /*
@@ -940,9 +984,9 @@ void Speed_loop (void) {
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
-#ifndef NO_SERVO_DRIVER
-		float32_t tmp = fabs(task);
 		torq_corr = (Torque_Out / TORQUE_MAX);
+#ifdef PID_ADAPTIVE
+		float32_t tmp = fabs(task);
 		if ((servo_get_pos() >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
@@ -953,11 +997,12 @@ void Speed_loop (void) {
 		if (tmp < ZONE_DEAD_REF) task = 0;
 #endif
 		pi_out = arm_pid_f32(&Speed_PID, task);
-#ifndef NO_SPSH_20
+#ifdef ECU_CONTROL
+		EcuControl(pi_out);
+#elif SPSH_20_CONTROL
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);
-#endif
-#ifndef NO_SERVO_DRIVER
+#elif SERVO_CONTROL
 #ifdef MODEL_OBJ
 		if (task) servo_set_out(pi_out * SERVO_FACT);
 #else
@@ -966,9 +1011,10 @@ void Speed_loop (void) {
 #endif
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
-#ifndef NO_SERVO_DRIVER
-		pi_out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
+#ifdef SERVO_CONTROL
+		pi_out = servo_get_pos() * SPEED_FACT;
 #endif
+		pi_out *= (1 - torq_corr);
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}

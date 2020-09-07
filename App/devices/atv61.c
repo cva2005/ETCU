@@ -167,7 +167,6 @@ void atv61_step(void) {
 		} else {
 			atv61_cmd_prepare(); // подготовить данные для отправки
 			if (modbus_wr_mreg(atv61_node_id, MB_Control_word2, sizeof(atv_pdo1_t) / 2, atv61_tx_data.byte)) {
-				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
 				atv61_cfg_step = 0;
 tx_compl:
 				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME);
