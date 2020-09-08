@@ -77,6 +77,7 @@
 									<listOptionValue builtIn="false" value="NO_BCU_SENS"/>
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>
+									<listOptionValue builtIn="false" value="MVA8_DEBUG"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -197,6 +198,7 @@
 									<listOptionValue builtIn="false" value="ECU_CONTROL"/>
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>
+									<listOptionValue builtIn="false" value="MVA8_DEBUG"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.225212887" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>

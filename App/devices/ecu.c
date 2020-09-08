@@ -24,7 +24,7 @@ void EcuControl (float32_t out) {
 	uint16_t data = (uint16_t)(out * DAC_FACT);
 	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX; // 0...5В
 	mu6u_set_out(data); // уст. выходы DAC0, DAC1
-	ServoPos = data * (1000 / DAC_OUT_MAX) * 100; // положение сервопривода %
+	ServoPos = data * ((1000 / DAC_OUT_MAX) * 100); // положение сервопривода %
 }
 
 uint8_t EcuGetError (void) {

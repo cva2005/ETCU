@@ -42,14 +42,17 @@ typedef struct {
 } timeout_t;
 
 /* адреса датчиков в системе */
-#define NODE_ID_BCU 1	//Адрес CanOpen модуля управления гидротормозом
-#define NODE_ID_FC	2	//Адрес CanOpen/ModBus преобразователя частоты
-#define SPSH20_ADR	1	//Адрес сервопривода
-#define ADR_NL_3DPAS 1	//Адрес ModBus датчика параметров атмосферы NL-3DPAS
-#define ADR_MV8A 	3	//Адрес ModBus аналогового модуля MV110-8A
-#define ADR_MU6U 	2	//Адрес ModBus DAC модуля MU110-6U
-#define ADR_T46 	1	//Адрес ModBus датчика крутящего момента
-#define ADR_CDU		1	//Адрес CDUlink зарядно-разрядного устйроства
+#define NODE_ID_BCU 	1 // Адрес CanOpen модуля управления гидротормозом
+#define NODE_ID_FC		2 // Адрес CanOpen/ModBus преобразователя частоты
+#define SPSH20_ADR		1 // Адрес CanOpen сервопривода
+#define ADR_NL_3DPAS 	1 // Адрес ModBus датчика параметров атмосферы NL-3DPAS
+#define ADR_MV8A3 		5 // Адрес ModBus2 аналогового модуля MV110-8A
+#define ADR_MV8A2 		4 // Адрес ModBus2 аналогового модуля MV110-8A
+#define ADR_MV8A1 		3 // Адрес ModBus2 аналогового модуля MV110-8A
+#define ADR_MV8A 		3 // Адрес ModBus2 аналогового модуля MV110-8A
+#define ADR_MU6U 		2 // Адрес ModBus2 DAC модуля MU110-6U
+#define ADR_T46 		1 // Адрес ModBus2 датчика крутящего момента
+#define ADR_CDU			1 // Адрес CDUlink зарядно-разрядного устйроства
 
 /* расположение аналоговых сигналов ETCU */
 #define ETCU_AI_FUEL1		0

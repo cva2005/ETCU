@@ -19,6 +19,7 @@
 #include "spsh20.h"
 #include "nl_3dpas.h"
 #include "mu110_6U.h"
+#include "mv110_8A.h"
 #include "t46.h"
 #include "ds18b20.h"
 #include "power.h"
@@ -301,6 +302,7 @@ void control_init(void) {
 #endif
 	nl_3dpas_init(ADR_NL_3DPAS);
 	mu6u_init(ADR_MU6U);
+	mv8a_init(ADR_MV8A);
 #ifndef NO_TORQ_DRIVER
 	t46_init(ADR_T46);
 #endif
@@ -397,6 +399,13 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP7]=ds18b20_get_temp(7);
  	if (ds18b20_get_error(8)>2)sg_st.etcu.i.a[ETCU_AI_TEMP8] = ERROR_CODE;
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
+#endif
+#ifdef MVA8_DEBUG
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP4] = mv8a_read_res(0);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP5] = mv8a_read_res(1);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP6] = mv8a_read_res(12);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP7] = mv8a_read_res(18);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP8] = mv8a_read_res(19);
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;

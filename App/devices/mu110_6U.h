@@ -4,10 +4,12 @@
 #include "timers.h"
 #include "_control.h"
 
+#pragma pack(1)
 typedef union {
 	uint8_t byte[4];
 	uint16_t word[2];
 } mu6u_tx_t;
+#pragma pack()
 
 #define MU6U_CONNECT_TIME	2000 // Время ответа от MU6U, при прев. связь считается потерянной
 #define MU6U_DATA_TX_TIME	SPEED_LOOP_TIME //Таймаут между отправляемыми пакетами к MU6U

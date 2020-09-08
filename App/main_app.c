@@ -32,6 +32,7 @@
 #include "spsh20.h"
 #include "nl_3dpas.h"
 #include "mu110_6U.h"
+#include "mv110_8A.h"
 #include "t46.h"
 #include "_control.h"
 #include "timers.h"
@@ -103,6 +104,7 @@ void main_app (void) {
 #endif
 		control_step();
 		mu6u_step();
+		mv8a_step();
 		if (timers_get_time_left(led_blink_time) == 0) {
 			HAL_GPIO_TogglePin(LED_MODE_GPIO_Port, LED_MODE_Pin);
 			led_blink_time = timers_get_finish_time(LED_BLINK_TIME);

@@ -9,7 +9,7 @@
 #define APP_INTERFACES_MODBUS2_H_
 #include "types.h"
 
-#define MODBUS2_MAX_DEV 	4 //максимальное возможное количество устйроств ModBus
+#define MODBUS2_MAX_DEV 	6 // устйроств ModBus в сети
 #define MB2_TX_BUFF			20
 typedef void (*modbus2_rx_t) (char *data, uint8_t len, uint8_t adr, uint8_t function); //описание процедуры - обработчика принятых команд ModBus
 
