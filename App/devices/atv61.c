@@ -12,7 +12,7 @@
 
 static atv_pdo1_t atv61_tx_data; //отправляемые данные в PDO1
 static atv_pdo1_t atv61_rx_data; //принмаемые данные из PDO1
-uint8_t ChN, atv61_node_id=0;		//NOD ID устйроства ATV61
+static uint8_t ChN, atv61_node_id=0; //NOD ID устйроства ATV61
 static stime_t atv61_connect_time;	//таймер ожидания ответов
 static stime_t atv61_tx_time;		//таймер отправки пакетов
 //static uint8_t atv61_cmd=ATV61_STOP; //команда управления: вращенияе влево, вращение вправо

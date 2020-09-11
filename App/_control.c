@@ -299,8 +299,10 @@ void control_init(void) {
 	ds18b20_init(8);
 #endif
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
+#ifdef ECU_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
 	mv8a_init(CH2, ADR_MV8A);
+#endif
 #ifndef NO_TORQ_DRIVER
 	t46_init(CH2, ADR_T46);
 #endif
@@ -981,6 +983,9 @@ void init_PID (void) {
 #elif  SERVO_CONTROL
 	#define SERVO_STATE			servo_get_pos()
 	#define ZONE_DEAD_REF		50.0f
+#elif SPSH_20_CONTROL
+	#define SERVO_STATE			(float32_t)(spsh20_get_pos() / 1000)
+	#define ZONE_DEAD_REF		20.0f
 #elif SERVO_DEBUG
 	#define ZONE_DEAD_REF		80.0f
 #endif

@@ -70,9 +70,8 @@
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
 									<listOptionValue builtIn="false" value="NO_BATTERY"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
-									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="MODEL_NO_SERVO"/>
-									<listOptionValue builtIn="false" value="ECU_CONTROL"/>
+									<listOptionValue builtIn="false" value="ECU_CONTROL=1"/>
 									<listOptionValue builtIn="false" value="NO_BCU_SENS"/>
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>
@@ -195,7 +194,6 @@
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
-									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="ECU_CONTROL"/>
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>

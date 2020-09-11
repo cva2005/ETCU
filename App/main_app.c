@@ -54,7 +54,11 @@ void main_app (void) {
 	rs485_1_init(38400);
 	rs485_2_init(115200);
 	wifi_hf_init(115200);//wifi_hf_init(460800);
+#ifdef SPSH_20_CONTROL
+	can_1_init(CAN_1_SPEED_500K);
+#elif ECU_CONTROL
 	can_1_init(CAN_1_SPEED_250K);
+#endif
 	can_2_init(CAN_2_SPEED_250K);
 	pulse_in_init(1);
 	pulse_in_init(2);
@@ -67,8 +71,7 @@ void main_app (void) {
 	CanOpen_init(2);
 #ifdef ECU_CONTROL
 	canJ1939_init();
-#endif
-#ifdef SPSH_20_CONTROL
+#elif SPSH_20_CONTROL
 	pc_link_init();
 #endif
 	control_init();
@@ -79,12 +82,14 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
+#ifdef ECU_CONTROL
 		J1939_step();
-#ifdef SPSH_20_CONTROL
+		mu6u_step();
+		mv8a_step();
+#elif SPSH_20_CONTROL
 		pc_link_step();
 		spsh20_step();
-#endif
-#ifdef SERVO_CONTROL
+#elif SERVO_CONTROL
 		servo_step();
 #endif
 		bcu_step();
@@ -100,8 +105,6 @@ void main_app (void) {
 		t46_step();
 #endif
 		control_step();
-		mu6u_step();
-		mv8a_step();
 		if (timers_get_time_left(led_blink_time) == 0) {
 			HAL_GPIO_TogglePin(LED_MODE_GPIO_Port, LED_MODE_Pin);
 			led_blink_time = timers_get_finish_time(LED_BLINK_TIME);
