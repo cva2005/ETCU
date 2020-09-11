@@ -4,7 +4,7 @@
  *  Created on: 29 янв. 2016 г.
  *      Author: Перчиц А.Н.
  */
-#include "modbus2.h"
+#include "modbus.h"
 #include "rs485_1.h"
 #include "rs485_2.h"
 #include "timers.h"
@@ -12,7 +12,7 @@
 #include <string.h>
 
 
-modbus2_rx_t modbus2_rx[MODBUS2_MAX_DEV]; //указатели на функции обработчики пакетов от устйроств CanOpen
+modbus_rx_t modbus2_rx[MODBUS2_MAX_DEV]; //указатели на функции обработчики пакетов от устйроств ModBus
 static uint8_t modbus2_channel=0;//рабочий канал RS-485 на котором инициализирована надстройка ModBus
 static stime_t modbus2_tx_time; //время когда разрешен следующий приём
 static stime_t modbus2_rx_time; //врея когда должен быть принят следующий байт
@@ -79,7 +79,7 @@ void modbus2_step(void)
 	if (rx_size!=modbus2_rx_size) //если количество принятых байт увеличилось
 		{
 		modbus2_rx_size=rx_size;	//обновить кол-во принятых байт
-		modbus2_rx_time=timers_get_finish_time(MODBUS2_BYTE_RX_PAUSE);	//установить максимально допустимое время приёма следующего байта
+		modbus2_rx_time=timers_get_finish_time(MODBUS_BYTE_RX_PAUSE);	//установить максимально допустимое время приёма следующего байта
 		return;
 		}
 
@@ -122,11 +122,11 @@ uint8_t modbus2_rd_in_reg(uint8_t adr, uint16_t reg, uint16_t number)
 {uint8_t pack[8], st;
 udata16_t crc;
 
-	//if (modbus_busy) return(0);
-	if (modbus2_get_busy(adr)) return(0);
+	if (modbus2_busy) return(0);
+	//if (modbus2_get_busy(adr)) return(0);
 
 	pack[0]=adr;
-	pack[1]=MODBUS2_READ_INPUTS_REGISTERS;
+	pack[1]=MODBUS_READ_INPUTS_REGISTERS;
 	pack[2]=reg>>8;
 	pack[3]=reg;
 	pack[4]=number>>8;
@@ -160,11 +160,11 @@ uint8_t modbus2_rd_hold_reg(uint8_t adr, uint16_t reg, uint16_t number)
 {uint8_t pack[8];
 udata16_t crc;
 
-	//if (modbus_busy) return(0);
-	if (modbus2_get_busy(adr)) return(0);
+	if (modbus2_busy) return(0);
+	//if (modbus2_get_busy(adr)) return(0);
 
 	pack[0]=adr;
-	pack[1]=MODBUS2_READ_HOLDING_REGISTERS;
+	pack[1]=MODBUS_READ_HOLDING_REGISTERS;
 	pack[2]=reg>>8;
 	pack[3]=reg;
 	pack[4]=number>>8;
@@ -198,12 +198,12 @@ uint8_t modbus2_wr_1reg(uint8_t adr, uint16_t reg, uint16_t val)
 {uint8_t pack[8];
 udata16_t crc;
 
-	//if (modbus_busy) return(0);
-	if (modbus2_get_busy(adr)) return(0);
+	if (modbus2_busy) return(0);
+	//if (modbus2_get_busy(adr)) return(0);
 
 	pack[0]=adr;
 
-	pack[1]=MODBUS2_FORCE_SINGLE_REGISTER;
+	pack[1]=MODBUS_FORCE_SINGLE_REGISTER;
 	pack[2]=reg>>8;
 	pack[3]=reg;
 	pack[4]=val>>8;
@@ -239,8 +239,8 @@ uint8_t modbus2_user_function(uint8_t adr, uint8_t func, uint8_t ln, uint8_t *da
 {uint8_t pack[255];
 udata16_t crc;
 
-	//if (modbus_busy) return(0);
-	if (modbus2_get_busy(adr)) return(0);
+	if (modbus2_busy) return(0);
+	//if (modbus2_get_busy(adr)) return(0);
 	if (ln>(sizeof(pack)-sizeof(adr)-sizeof(func)-sizeof(ln))) return(0);
 
 	pack[0]=adr;
@@ -274,30 +274,24 @@ udata16_t crc;
   *
   * @retval Состояние интерфейса: 1 - ModBus занят, 0 - ModBus свободен
   */
-uint8_t modbus2_get_busy(uint8_t adr)
-{uint8_t cnt;
-	if (adr>0) //если проверка доступности линии с учётом приоритетов
-		{
+uint8_t modbus2_get_busy (uint8_t adr, pr_t pr) {
+	uint8_t cnt;
+	if (adr > 0) { //если проверка доступности линии с учётом приоритетов
 		adr--;
-		if (modbus2_busy==0) //шина доступна
-			{
-			cnt=modbus2_rq_point;		//начинаем ппроверку проиоритетов запроса с устйроства, которое на данном шаге имеет максимальный приоритет
-			while ((cnt!=adr)&&(modbus2_rq_tx[cnt]==0)) //проерить есть ли в очереди устйроства с большим приоритетом отправки
-				{
+		if (modbus2_busy==0) { //шина доступна
+			cnt = modbus2_rq_point; // очередь устйроств с большим приоритетом отправки
+			while ((cnt != adr) && (modbus2_rq_tx[cnt] == 0)) {
 				cnt++;
-				if (cnt>=MODBUS2_MAX_DEV) cnt=0;
-				}
-			if (cnt==adr) //если нет устройств с большим приоритетом
-				return(0); //вернуть что канал свободен
-			else		//если есть устйроства с большим приоритетом отправки
-				{
-				modbus2_rq_tx[adr]=1; //установить флаг запроса на отправку
-				return(1); //вернуть что шина занята (ожидает запроса отправки более приоритетного устйроства)
-				}
+				if (cnt >= MODBUS2_MAX_DEV) cnt = 0;
 			}
-		else return(1);
-		}
-	else return(modbus2_busy);
+			if (cnt == adr) { //если нет устройств с большим приоритетом
+				return (0); //вернуть что канал свободен
+			} else { //если есть устйроства с большим приоритетом отправки
+				if (pr == Hi_pr) modbus2_rq_tx[adr] = 1; //установить флаг запроса на отправку
+				return (1); //вернуть что шина занята (ожидает запроса отправки более приоритетного устйроства)
+			}
+		} else return (1);
+	} else return (modbus2_busy);
 }
 
 /**
@@ -317,7 +311,7 @@ static uint8_t modbus2_tx(uint8_t *data, uint16_t len)
 		if (rs485_1_write_tx_data(data, len))
 			{
 			modbus2_busy=1;
-			modbus2_tx_time=timers_get_finish_time(MODBUS2_MAX_WAIT_TIME);
+			modbus2_tx_time=timers_get_finish_time(MODBUS_MAX_WAIT_TIME);
 			return(1);
 			}
 #endif
@@ -326,7 +320,7 @@ static uint8_t modbus2_tx(uint8_t *data, uint16_t len)
 		if (rs485_2_write_tx_data(data, len))
 			{
 			modbus2_busy=1;
-			modbus2_tx_time=timers_get_finish_time(MODBUS2_MAX_WAIT_TIME);
+			modbus2_tx_time=timers_get_finish_time(MODBUS_MAX_WAIT_TIME);
 			return(1);
 			}
 
@@ -346,11 +340,12 @@ static uint8_t modbus2_tx(uint8_t *data, uint16_t len)
   */
 uint8_t modbus2_wr_mreg(uint8_t adr, uint16_t reg, uint16_t num, uint8_t* data)
 {
-	uint8_t pack[MB2_TX_BUFF], i, j; udata16_t crc;
+	uint8_t pack[MB_TX_BUFF], i, j; udata16_t crc;
 
-	if (modbus2_get_busy(adr)) return(0);
+	if (modbus2_busy) return(0);
+	//if (modbus2_get_busy(adr)) return(0);
 	pack[0] = adr;
-	pack[1] = MODBUS2_FORCE_MULTIPLE_REGISTERS;
+	pack[1] = MODBUS_FORCE_MULTIPLE_REGISTERS;
 	pack[2] = (uint8_t)(reg >> 8);
 	pack[3] = (uint8_t)reg;
 	pack[4] = (uint8_t)(num >> 8);

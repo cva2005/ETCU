@@ -223,24 +223,22 @@ void signals_start_cfg (void) {
 	sig_cfg[AI_CDU_I].fld.number=2;
 	sig_cfg[AI_CDU_U].fld.number=3;
 //настройка сигналов планшета-------------------------------
-	nmb = 0;
-	for (cnt=DI_PC_TEST_START; cnt<SIG_END; cnt++) {
-		sig_cfg[cnt].fld.deivice=PC;
-		sig_cfg[cnt].fld.activ=1;
-		sig_cfg[cnt].fld.type=DI;
-		if (cnt >= DO_PC_STARTER) {
-			if (cnt==DO_PC_STARTER) nmb=0;
-			sig_cfg[cnt].fld.type=DO;
+	nmb = 0; uint8_t type = DI;
+	for (cnt = DI_PC_TEST_START; cnt < SIG_END; cnt++) {
+		sig_cfg[cnt].fld.deivice = PC;
+		sig_cfg[cnt].fld.activ = 1;
+		if (cnt == DO_PC_STARTER) {
+			nmb = 0;
+			type = DO;
+		} else if (cnt == AI_PC_TORQUE) {
+			nmb = 0;
+			type = AI;
+		} else if (cnt == AO_PC_TORQUE) {
+			nmb = 0;
+			type = AO;
 		}
-		if (cnt>=AI_PC_TORQUE) {
-			if (cnt==AI_PC_TORQUE) nmb=0;
-			sig_cfg[cnt].fld.type=AI;
-		}
-		if (cnt>=AO_PC_TORQUE) {
-			if (cnt==AO_PC_TORQUE) nmb=0;
-			sig_cfg[cnt].fld.type=AO;
-		}
-		sig_cfg[cnt].fld.number=nmb;
+		sig_cfg[cnt].fld.type = type;
+		sig_cfg[cnt].fld.number = nmb;
 		nmb++;
 	}
 }
@@ -300,11 +298,11 @@ void control_init(void) {
 	ds18b20_init(7);
 	ds18b20_init(8);
 #endif
-	nl_3dpas_init(ADR_NL_3DPAS);
-	mu6u_init(ADR_MU6U);
-	mv8a_init(ADR_MV8A);
+	nl_3dpas_init(CH1, ADR_NL_3DPAS);
+	mu6u_init(CH2, ADR_MU6U);
+	mv8a_init(CH2, ADR_MV8A);
 #ifndef NO_TORQ_DRIVER
-	t46_init(ADR_T46);
+	t46_init(CH2, ADR_T46);
 #endif
 #ifdef SPSH_20_CONTROL
 	spsh20_init(SPSH20_ADR);
@@ -314,7 +312,7 @@ void control_init(void) {
 #endif
 	bcu_init(NODE_ID_BCU);
 #ifndef NO_FREQ_DRIVER
-	atv61_init(NODE_ID_FC);
+	atv61_init(CH1, NODE_ID_FC);
 #endif
 	pc_device_init();
 }
@@ -403,9 +401,9 @@ void read_devices (void) {
 #ifdef MVA8_DEBUG
  	sg_st.etcu.i.a[ETCU_AI_TEMP4] = mv8a_read_res(0);
  	sg_st.etcu.i.a[ETCU_AI_TEMP5] = mv8a_read_res(1);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP6] = mv8a_read_res(12);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP7] = mv8a_read_res(18);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP8] = mv8a_read_res(19);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP6] = mv8a_read_res(8);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP7] = mv8a_read_res(9);
+ 	sg_st.etcu.i.a[ETCU_AI_TEMP8] = mv8a_read_res(16);
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;
@@ -979,10 +977,12 @@ void init_PID (void) {
 #define SERVO_FACT			1.20f
 #ifdef ECU_CONTROL
 	#define ZONE_DEAD_REF		25.0f
+	#define SERVO_STATE			(float32_t)(EcuServoPos() / 1000)
+#elif  SERVO_CONTROL
+	#define SERVO_STATE			servo_get_pos()
+	#define ZONE_DEAD_REF		50.0f
 #elif SERVO_DEBUG
 	#define ZONE_DEAD_REF		80.0f
-#elif  SERVO_CONTROL
-	#define ZONE_DEAD_REF		50.0f
 #endif
 /*
  * Управление контуром оборотов
@@ -994,9 +994,10 @@ void Speed_loop (void) {
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
 		torq_corr = (Torque_Out / TORQUE_MAX);
+		if (torq_corr > 1.0) torq_corr = 1.0;
 #ifdef PID_ADAPTIVE
 		float32_t tmp = fabs(task);
-		if ((servo_get_pos() >= 99.0) && (task > 0)) {
+		if ((SERVO_STATE >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
 			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
@@ -1079,6 +1080,12 @@ void Torque_loop (torq_val_t val) {
 			float32_t pi_out, task;
 			task = st(AI_PC_TORQUE) / 1000.0;
 			task -= Torque_Out; // PID input Error
+			if ((Torque_Out >= TORQUE_MAX) && (task > 0)) {
+				Torque_PID.Ki = 0;
+			} else {
+				Torque_PID.Ki = TorqueKi;
+			}
+			arm_pid_init_f32(&Torque_PID, PID_NO_RESET);
 			pi_out = arm_pid_f32(&Torque_PID, task); // ToDo: нормирование вх. сигнала ПИ
 #ifdef MODEL_OBJ
 			Torque_Out = get_obj(&TorqueObj, pi_out);

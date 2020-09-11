@@ -12,7 +12,7 @@
 nl_3dpas_rx_data_t nl_3dpas_rx_data; //данные принимаемые от датчика параметров атмосферы
 
 uint8_t nl_3dpas_err_send;			//счётчик пакетов без ответа
-uint8_t nl_3dpas_adr;				//адрес датчика NL-3DPAS
+static uint8_t ChN, nl_3dpas_adr; //адрес датчика NL-3DPAS
 stime_t nl_3dpas_tx_time;			//время следующей отправки пакетов
 uint8_t nl_3dpas_tx_type=NL_3DPAS_CONVERT;	//номер шага обмена: преобразование или чтения параметров
 
@@ -21,24 +21,21 @@ uint8_t nl_3dpas_tx_type=NL_3DPAS_CONVERT;	//номер шага обмена: преобразование и
   *
   * @param  adr: адрес датчика
   */
-void nl_3dpas_init(uint8_t adr)
-{uint8_t cnt=0;
-extern modbus_rx_t modbus_rx[MODBUS_MAX_DEV]; //указатели на функции обработчики пакетов от modbus
-
+void nl_3dpas_init(uint8_t ch, uint8_t adr) {
+	uint8_t cnt = 0;
+	ChN = ch;
 	nl_3dpas_err_send = 0;
 	nl_3dpas_adr=0;
 	nl_3dpas_tx_type=NL_3DPAS_CONVERT;
 
-	if ((adr<=247)&&(adr>0))
-		{
-		while ((modbus_rx[cnt]!=NULL)&&(cnt<MODBUS_MAX_DEV))	cnt++; //найти свободный указатель
-		if (cnt<MODBUS_MAX_DEV)
-			{
-			modbus_rx[cnt]=nl_3dpas_update_data; 	//указать обработчик принатых пакетов
+	if ((adr<=247)&&(adr>0)) {
+		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS_MAX_DEV)) cnt++; //найти свободный указатель
+		if (cnt < MODBUS_MAX_DEV) {
+			pf_rx[ch][cnt]=nl_3dpas_update_data; 	//указать обработчик принатых пакетов
 			nl_3dpas_adr=adr;					  		//сохранить адрес
 			nl_3dpas_tx_time=timers_get_finish_time(0);	//установить время отправки следующего пакета
-			}
 		}
+	}
 }
 
 /**
@@ -69,9 +66,9 @@ void nl_3dpas_update_data (char *data, uint8_t len, uint8_t adr, uint8_t functio
 void nl_3dpas_step(void)
 {
 	if (timers_get_time_left(nl_3dpas_tx_time)==0)	{
-		if (modbus_get_busy(nl_3dpas_adr)==0) {
-			if (modbus_rd_hold_reg(nl_3dpas_adr, 0, 3)) {
-				nl_3dpas_tx_time=timers_get_finish_time(NL_3DPAS_DATA_REINIT_TIME + MODBUS_MAX_WAIT_TIME);
+		if (modbus_get_busy(ChN, nl_3dpas_adr, Low_pr)==0) {
+			if (modbus_rd_hold_reg(ChN, nl_3dpas_adr, 0, 3)) {
+				nl_3dpas_tx_time = timers_get_finish_time(NL_3DPAS_DATA_REINIT_TIME + MODBUS_MAX_WAIT_TIME);
 				if (nl_3dpas_err_send<0xFF) nl_3dpas_err_send++;
 			}
 		}

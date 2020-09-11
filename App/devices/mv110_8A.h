@@ -8,7 +8,7 @@
 typedef	struct {
 	uint8_t status;
 	uint8_t	time;
-	float32_t fres;
+	uint8_t fdata[4];
 } mv8a_rx_t;
 #pragma pack()
 
@@ -19,7 +19,7 @@ typedef	struct {
 #define CH_NUM				8 	// количество каналов в MV110-8A
 #define INP_NUM				20 	// количество используемых каналов измерения
 
-void mv8a_init (uint8_t addr);	// Инициализация устйроства
+void mv8a_init (uint8_t ch, uint8_t addr);	// Инициализация устйроства
 int32_t mv8a_read_res (uint8_t ch);	// результат измерения
 uint8_t mv8a_err_link (void);	// Возвращает состояние связи с MV8A
 void mv8a_step (void);

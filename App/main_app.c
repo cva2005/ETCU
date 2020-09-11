@@ -22,7 +22,6 @@
 #include "canopen.h"
 #include "J1939.h"
 #include "modbus.h"
-#include "modbus2.h"
 #include "servotech_link.h"
 #include "pc_link.h"
 #include "bcu.h"
@@ -61,8 +60,7 @@ void main_app (void) {
 	pulse_in_init(2);
 	pulse_in_init(3);
 	ds2482_init();
-	modbus_init(1);
-	modbus2_init(2);
+	modbus_init();
 #ifdef SPSH_20_CONTROL
 	servotech_link_init(1);
 #endif
@@ -77,7 +75,6 @@ void main_app (void) {
 	led_blink_time = timers_get_finish_time(LED_BLINK_TIME);
 	while (1) {
 		modbus_step();
-		modbus2_step();
 #ifdef SPSH_20_CONTROL
 		servotech_link_step();
 #endif

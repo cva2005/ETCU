@@ -4,7 +4,7 @@
 #include "J1939.h"
 
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
-#define DAC_FACT			0.070f
+#define DAC_FACT			0.060f
 
 void EcuControl (float32_t out);
 void SaveEngineHours (PGN_65253_t* data);

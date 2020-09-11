@@ -12,7 +12,7 @@
 
 static atv_pdo1_t atv61_tx_data; //отправляемые данные в PDO1
 static atv_pdo1_t atv61_rx_data; //принмаемые данные из PDO1
-static uint8_t atv61_node_id=0;		//NOD ID устйроства ATV61
+uint8_t ChN, atv61_node_id=0;		//NOD ID устйроства ATV61
 static stime_t atv61_connect_time;	//таймер ожидания ответов
 static stime_t atv61_tx_time;		//таймер отправки пакетов
 //static uint8_t atv61_cmd=ATV61_STOP; //команда управления: вращенияе влево, вращение вправо
@@ -32,8 +32,9 @@ extern CanOpen_rx_object_t CanOpen_rx_object[MAX_DEV_CANOPEN]; //указатели на фу
   *
   * @param  node_id: адрес устйроства на шине CanOpen (NODE_ID)
   */
-void atv61_init(uint8_t node_id) {
+void atv61_init(uint8_t ch, uint8_t node_id) {
 	uint8_t cnt=0;
+	ChN = ch;
 	memset(&atv61_tx_data.byte[0], 0, sizeof(atv61_tx_data));
 	memset(&atv61_rx_data.byte[0], 0, sizeof(atv61_rx_data));
 	atv61_frequency = 0;
@@ -42,9 +43,9 @@ void atv61_init(uint8_t node_id) {
 #ifdef ATV61_MB
 	atv61_err_send = 0; //счётчик пакетов без ответа
 	if ((node_id <= 247) && (node_id > 0)) {
-		while ((modbus_rx[cnt] != NULL) && (cnt < MODBUS_MAX_DEV)) cnt++; //найти свободный указатель
+		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS_MAX_DEV)) cnt++; //найти свободный указатель
 		if (cnt < MODBUS_MAX_DEV) {
-			modbus_rx[cnt] = atv61_update_data; // обработчик принятых пакетов
+			pf_rx[ch][cnt] = atv61_update_data; // обработчик принятых пакетов
 			atv61_err_send = 0; //счётчик пакетов без ответа
 			atv61_node_id = node_id; // сохранить адрес
 			atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
@@ -160,13 +161,13 @@ void atv61_step(void) {
 	uint8_t tx_st;
 #ifdef ATV61_MB
 	if (timers_get_time_left(atv61_tx_time) == 0)	{
-		if (modbus_get_busy(atv61_node_id)) return; // интерфейс занят
+		if (modbus_get_busy(ChN, atv61_node_id, Hi_pr)) return; // интерфейс занят
 		if (atv61_cfg_step == 0) {
 			atv61_cfg_step = 1;
-			if (modbus_rd_hold_reg(atv61_node_id, MB_Status_word2, sizeof(atv_pdo1_t) / 2)) goto tx_compl;
+			if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_Status_word2, sizeof(atv_pdo1_t) / 2)) goto tx_compl;
 		} else {
 			atv61_cmd_prepare(); // подготовить данные для отправки
-			if (modbus_wr_mreg(atv61_node_id, MB_Control_word2, sizeof(atv_pdo1_t) / 2, atv61_tx_data.byte)) {
+			if (modbus_wr_mreg(ChN, atv61_node_id, MB_Control_word2, sizeof(atv_pdo1_t) / 2, atv61_tx_data.byte)) {
 				atv61_cfg_step = 0;
 tx_compl:
 				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME);

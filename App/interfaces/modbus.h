@@ -9,23 +9,34 @@
 #define APP_INTERFACES_MODBUS_H_
 #include "types.h"
 
-#define MODBUS_MAX_DEV 2 //максимальное возможное количество устйроств ModBus
 typedef void (*modbus_rx_t) (char *data, uint8_t len, uint8_t adr, uint8_t function); //описание процедуры - обработчика принятых команд ModBus
+typedef uint32_t (*rx_data_t) (void* buf, uint32_t size);// Принимает данные из RS485
+typedef uint32_t (*rx_size_t) (void);  // Возвращает количество байт данных
+typedef uint32_t (*tx_data_t) (void* buf, uint32_t size); // Отправляет данные в RS485
+typedef enum {
+	Low_pr = 0,
+	Hi_pr = 1
+} pr_t;
 
-#define MODBUS_MAX_WAIT_TIME 	500 //максмиально допустимое время ожидания ответа от slave устройства
-#define MODBUS_BYTE_RX_PAUSE 	5 //максимально допустимая пауза между принятыми байтами
+#define CH1						0 // раздельных сетей (мастеров) ModBus
+#define CH2						1 // раздельных сетей (мастеров) ModBus
+#define MB_NET					2 // раздельных сетей (мастеров) ModBus
+#define MB_BL					256 // размер буфера приема
+#define MODBUS_MAX_DEV			6 // устройств ModBus 1
+#define MODBUS2_MAX_DEV 		6 // устройств ModBus 2
+#define MODBUS_MAX_WAIT_TIME 	500 // время ожидания ответа от slave устройства
+#define MODBUS_BYTE_RX_PAUSE 	5 // допустимая пауза между принятыми байтами
 #define MB_TX_BUFF				20
 
-void modbus_init(uint8_t chan);			//Инициализация интерфейса ModBus
-void modbus_step(void);					//шаг обмена ModBus: необходимо добавить в основной цикл
-uint8_t modbus_rd_in_reg(uint8_t adr, uint16_t reg, uint16_t number);	//Функция: Получение текущего значения одного или нескольких регистров хранения
-uint8_t modbus_rd_hold_reg(uint8_t adr, uint16_t reg, uint16_t number);	//Функция: Получение текущего значения одного или нескольких регистров хранения
-uint8_t modbus_wr_1reg(uint8_t adr, uint16_t reg, uint16_t val);			//Функция: Запись нового значения в регистр хранения
-uint8_t modbus_wr_mreg(uint8_t adr, uint16_t reg, uint16_t num, uint8_t* data);
-uint8_t modbus_user_function(uint8_t adr, uint8_t func, uint8_t ln, uint8_t *data);//Функция: Пользовательская функция
-uint8_t modbus_get_busy(uint8_t adr);							//Возвращает готовность ModBus к передаче данных
-static uint8_t modbus_tx(uint8_t *data, uint16_t len);			//Отправляет пакет по интерфейсу ModBus
-extern modbus_rx_t modbus_rx[MODBUS_MAX_DEV]; //указатели на функции обработчики пакетов от modbus
+void modbus_init (void); //Инициализация интерфейса ModBus
+void modbus_step (void); //шаг обмена ModBus: необходимо добавить в основной цикл
+uint8_t modbus_rd_in_reg (uint8_t ch, uint8_t adr, uint16_t reg, uint16_t number); // Чтение одного или нескольких входных регистров
+uint8_t modbus_rd_hold_reg (uint8_t ch, uint8_t adr, uint16_t reg, uint16_t number); // Чтение одного или нескольких регистров хранения
+uint8_t modbus_wr_1reg (uint8_t ch, uint8_t adr, uint16_t reg, uint16_t val); //Запись регистра хранения
+uint8_t modbus_wr_mreg (uint8_t ch, uint8_t adr, uint16_t reg, uint16_t num, uint8_t* data); //Запись регистров хранения
+uint8_t modbus_user_function (uint8_t ch, uint8_t adr, uint8_t func, uint8_t ln, uint8_t *data);//Функция: Пользовательская функция
+uint8_t modbus_get_busy (uint8_t ch, uint8_t adr, pr_t pr); //Возвращает готовность ModBus к передаче данных
+extern modbus_rx_t* pf_rx[MB_NET]; //указатели на функции обработчики пакетов от устйроств ModBus
 
 typedef enum
 {

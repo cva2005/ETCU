@@ -68,7 +68,6 @@
 									<listOptionValue builtIn="false" value="ARM_MATH_CM4"/>
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
-									<listOptionValue builtIn="false" value="NO_TORQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="NO_BATTERY"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
 									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
@@ -78,6 +77,8 @@
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>
 									<listOptionValue builtIn="false" value="MVA8_DEBUG"/>
+									<listOptionValue builtIn="false" value="NEW_PC_AO"/>
+									<listOptionValue builtIn="false" value="T46_DEBUG"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -117,7 +118,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="App/devices/rtc_sens.c|Src/bsp_driver_sd.c|Src/fatfs.c|Drivers/CMSIS/Lib/GCC|Drivers/CMSIS/Lib/ARM|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="App/interfaces/modbus2.c|App/devices/rtc_sens.c|Src/bsp_driver_sd.c|Src/fatfs.c|Drivers/CMSIS/Lib/GCC|Drivers/CMSIS/Lib/ARM|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="BasicMathFunctions|CommonTables|FilteringFunctions|SupportFunctions" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers/CMSIS/DSP_Lib/Source"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Drivers/CMSIS/Lib/ARM"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Drivers/CMSIS/Lib/GCC"/>
@@ -199,6 +200,8 @@
 									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="MU6U_DEBUG"/>
 									<listOptionValue builtIn="false" value="MVA8_DEBUG"/>
+									<listOptionValue builtIn="false" value="NEW_PC_AO"/>
+									<listOptionValue builtIn="false" value="T46_DEBUG"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.225212887" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -237,7 +240,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="App/devices/rtc_sens.c|Src/bsp_driver_sd.c|Src/fatfs.c|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="App/interfaces/modbus2.c|App/devices/rtc_sens.c|Src/bsp_driver_sd.c|Src/fatfs.c|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="BasicMathFunctions|CommonTables|FilteringFunctions|SupportFunctions" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers/CMSIS/DSP_Lib/Source"/>
 					</sourceEntries>
 				</configuration>

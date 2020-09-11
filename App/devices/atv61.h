@@ -70,7 +70,7 @@ typedef union
 	}atv_pdo1_t; //структура отправляемого пакета
 #pragma pack()
 
-void atv61_init(uint8_t node_id);			//Инициализация устйроства ATV61
+void atv61_init(uint8_t ch, uint8_t node_id); //Инициализация устйроства ATV61
 static void atv61_cmd_prepare(void);		//Подготавливает командное слово для ATV61 в зависимости от команды пользователя и состояния привода
 void atv61_step(void);					//Шаг обработки данных устйроства ATV61
 void atv61_set_frequency(int32_t data);		//Устанавливает частоту ATV61
