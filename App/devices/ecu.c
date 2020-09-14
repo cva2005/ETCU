@@ -20,6 +20,12 @@ sg_st.etcu.i.a[ETCU_AI_TEMP7]=ds18b20_get_temp(7);
 sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 
+uint8_t EcuSetSpeed (float32_t spd, float32_t trq) {
+	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
+	int8_t tq_b = (int8_t)(trq * TORQUE_LIM);
+	return TorqueSpeedControl(tq_b, sp_w);
+}
+
 void EcuControl (float32_t out) {
 	uint16_t data = (uint16_t)(out * DAC_FACT);
 	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX; // 0...5Â

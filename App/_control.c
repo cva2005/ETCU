@@ -993,13 +993,27 @@ void init_PID (void) {
  * Управление контуром оборотов
  */
 void Speed_loop (void) {
+#if 0
+	EcuSetSpeed (Speed_Out, float32_t trq);
+#ifdef MODEL_OBJ
+		torq_corr *= TORQUE_FACTOR;
+		pi_out *= (1 - torq_corr);
+		Speed_Out = get_obj(&FrequeObj, pi_out);
+#endif // MODEL_OBJ
+#endif
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
-		task -= Speed_Out; // PID input Error
 		torq_corr = (Torque_Out / TORQUE_MAX);
 		if (torq_corr > 1.0) torq_corr = 1.0;
+		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+#ifdef ECU_TSC1_SPEED_CONTROL
+		EcuSetSpeed (task, torq_corr);
+#ifdef MODEL_OBJ
+		//Speed_Out = get_obj(&FrequeObj, pi_out);
+#endif // MODEL_OBJ
+#else // ECU ACCSELERATOR PEDAL INPUT CONTROL
+		task -= Speed_Out; // PID input Error
 #ifdef PID_ADAPTIVE
 		float32_t tmp = fabs(task);
 		if ((SERVO_STATE >= 99.0) && (task > 0)) {
@@ -1032,6 +1046,7 @@ void Speed_loop (void) {
 		pi_out *= (1 - torq_corr);
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
+#endif // ECU_SPEED_CONTRL
 	}
 }
 

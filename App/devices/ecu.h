@@ -5,7 +5,10 @@
 
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
 #define DAC_FACT			0.060f
+#define SPEED_RESOL			0.125f // rpm
+#define TORQUE_LIM			125.0f // %
 
+uint8_t EcuSetSpeed (float32_t spd, float32_t trq);
 void EcuControl (float32_t out);
 void SaveEngineHours (PGN_65253_t* data);
 void SavePedalPosition (int8_t th);

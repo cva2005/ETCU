@@ -16,6 +16,87 @@ typedef struct J1939_ID {
 #pragma pack()
 
 /*
+695 Режим управления двигателем
+696 Запрошенные условия регулирования скорости
+897 Приоритет режима управления
+898 Запрошенная скорость вращения (Error indicator FExx, Not available FFxx)
+518 Запрошенный крутящий момент
+ */
+#pragma pack(1)//  (To engine: Control Purpose dependent or 10 ms To retarder: 50 ms)
+typedef struct PGN_00000 { // TSC1 Torque Speed Control 1
+    uint8_t  ControlMode:		2;	// 695 Engine Override Control Mode
+    uint8_t  ControlConditions:	2;	// 696 Engine Requested Speed Control Conditions
+    uint8_t  ModePriority: 		2;	// 897 Override Control Mode Priority
+    uint8_t	 Unused_1: 			2;
+    uint16_t RequestedSpeed; 		// 898 Engine Requested Speed/Speed Limit
+    uint8_t  RequestedTorque; 		// 518 Engine Requested Torque/Torque Limit
+    uint8_t  TransmissionRate: 	3; 	// 3349 TSC1 Transmission Rate
+    uint8_t  ControlPurpose: 	5;	// 3350 TSC1 Control Purpose
+    uint8_t  TorqueHighResol: 	4;	// 4191 Engine Requested Torque -  High Resolution
+    uint8_t  Unused_2: 			4;
+    uint8_t  Unused_3;
+    uint8_t  MessageCounter: 	4; 	// 4206 Message Counter
+    uint8_t  MessageChecksum: 	4; 	// 4207 Message Checksum
+} PGN_00000_t;
+#pragma pack()
+
+/*
+	Engine Override Control Mode
+Override Disabled 			00
+Speed Control 				01
+Torque Control 				10
+Speed/Torque Limit Control	11
+*/
+typedef enum {
+	OverrideDis		= 0,
+	SpeedControl	= 1,
+	TorqueControl	= 2,
+	LimitControl	= 3
+} ControlMode_t;
+
+/*
+	Engine Requested Speed Control Conditions
+Transient Optimized for driveline disengaged and
+non-lockup condition 		00
+Stability Optimized for driveline disengaged and
+non-lockup condition 1		01
+Stability Optimized for driveline engaged and/or
+in lockup condition 2		10
+Stability Optimized for driveline engaged and/or
+in lockup condition			11
+*/
+typedef enum {
+	DisDrivelineNonLockup	= 0,
+	DisDrivelineNonLockup1	= 1,
+	EnDrivelineInLockup		= 2,
+	EnDrivelineInLockup1	= 3
+} ControlCond_t;
+
+/*
+	Override Control Mode Priority
+Highest Priority			00
+High Priority				01
+Medium Priority				10
+Low Priority				11
+*/
+typedef enum {
+	HighestPriority	= 0,
+	HighPriority	= 1,
+	MediumPriority	= 2,
+	LowPriority	= 3
+} ModePriority_t;
+
+/*
+	Engine Requested Torque/Torque Limit (1% -125 to +125 %)
+Error indicator 			FE
+Not available 				FF
+*/
+typedef enum {
+	ErrorIndicator	= 0xFE,
+	NotAvailable	= 0xFF
+} TorqueLimit_t;
+
+/*
 558 Датчик положения холостого хода педали акселератора Accelerator Pedal 1 Low Idle Switch 50
 91 Положение педали акселератора Accelerator Pedal Position 1
 559 Датчик кикдаун педали акселератора Accelerator Pedal Kickdown Switch
@@ -29,7 +110,7 @@ typedef struct PGN_61443 { // Electronic Engine Controller 2 (50 мсек)
     uint8_t  PdLowIdleSw2: 2; // 2970 Accelerator Pedal 2 Low Idle Switch
     uint8_t  PdPos1; // 91 Accelerator Pedal Position 1
     uint8_t  PercLoadSpeed; // 92 Engine Percent Load At Current Speed
-    uint8_t RemotePdPos; // 974 Remote Accelerator Pedal Position
+    uint8_t  RemotePdPos; // 974 Remote Accelerator Pedal Position
     uint8_t  PdPos2; // 29 Accelerator Pedal Position 2
     uint8_t  AccLimitSt: 4; // 2979 Vehicle Acceleration Rate Limit Status
     uint8_t  MaxPowerEn: 4; // 5021 Momentary Engine Maximum Power Enable Feedback
@@ -182,6 +263,7 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 } PGN_65276_t;
 #pragma pack()
 
+#define PGN_00000 00000 << 8
 #define PGN_61443 61443 << 8
 #define PGN_61444 61444 << 8
 #define PGN_65243 65243 << 8
@@ -192,8 +274,22 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define PGN_65266 65266 << 8
 #define PGN_65270 65270 << 8
 #define PGN_65276 65276 << 8
+#define TSC1_PGN		00000
+// Source Address ID
+#define Engine1				0
+#define Engine2				1
+#define Turbocharger		2
+#define Transmission1		3
+#define Transmission2		4
+#define ShiftConsole1		5
+#define ShiftConsole2		6
+#define PowerTakeOff		7
+#define AxleSteering		8
+#define AxleDrive1			9
+#define AxleDrive2			10
 
 void canJ1939_init(void);
 void J1939_step (void);
+uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd);
 
 #endif // #ifndef J1939_H

@@ -4,9 +4,10 @@
 #include "timers.h"
 #include "ecu.h"
 
-void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t id);
+void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
 
 void canJ1939_init (void) {
+	can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_61444, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -28,13 +29,13 @@ void J1939_step (void) {
 			read_st = can_1_read_rx_data(&can_id, &can_length, can_msg);
 		}
 		if (read_st) { //если были прочитаны пакеты
-			j1939Receive(can_msg, can_length, *((J1939_ID_t *)&can_id));
+			j1939Receive(can_msg, can_length, ((J1939_ID_t *)&can_id));
 		}
 	} while (read_st);
 }
 
-void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t id) {
-	switch (id.PGN) {
+void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
+	switch (id->PGN) {
 	case 61443: // Electronic Engine Controller 2 (50 мсек)
 		SavePedalPosition(((PGN_61443_t *)data)->PdPos1);
 		break;
@@ -67,6 +68,34 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t id) {
 		break;
 	}
 }
+
+uint8_t j1939Transmit (uint8_t* data, uint8_t len, J1939_ID_t id) {
+	return can_1_write_tx_data(*((uint32_t *)&id), len, data);
+}
+
+uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
+	PGN_00000_t png; J1939_ID_t id; uint8_t cc;
+	id.P = 03; // Priority
+	id.R = 0; // Should always be set to 0 when transmitting messages
+	id.PGN = TSC1_PGN; // Torque/Speed Control 1
+	id.SA = Transmission1;
+	png.ControlMode = SpeedControl;
+	png.RequestedSpeed = spd;
+	png.RequestedTorque = trq;
+	png.ModePriority = HighestPriority;
+	if (trq <= 0) {
+		cc = DisDrivelineNonLockup;
+	} else if (trq < 25) {
+		cc = DisDrivelineNonLockup1;
+	} else if (trq < 70) {
+		cc = EnDrivelineInLockup;
+	} else {
+		cc = EnDrivelineInLockup1;
+	}
+	png.ControlConditions = EnDrivelineInLockup1; // ToDo: зависит от нагрузки
+	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
+}
+
 #if 0
 bool j1939PeerToPeer (uint32_t lPGN) {
 	if (lPGN > 0 && lPGN <= 0xEFFF)
