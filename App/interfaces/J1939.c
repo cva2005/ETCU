@@ -7,7 +7,7 @@
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
 
 void canJ1939_init (void) {
-	can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_61444, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -75,6 +75,7 @@ uint8_t j1939Transmit (uint8_t* data, uint8_t len, J1939_ID_t id) {
 
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	PGN_00000_t png; J1939_ID_t id; uint8_t cc;
+	for (cc = 0; cc < sizeof(png); cc++) *((uint8_t *)&png + cc) = 0;
 	id.P = 03; // Priority
 	id.R = 0; // Should always be set to 0 when transmitting messages
 	id.PGN = TSC1_PGN; // Torque/Speed Control 1
@@ -92,7 +93,7 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	} else {
 		cc = EnDrivelineInLockup1;
 	}
-	png.ControlConditions = EnDrivelineInLockup1; // ToDo: зависит от нагрузки
+	png.ControlConditions = cc; // ToDo: зависит от нагрузки
 	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
 }
 

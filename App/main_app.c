@@ -56,7 +56,7 @@ void main_app (void) {
 	wifi_hf_init(115200);//wifi_hf_init(460800);
 #ifdef SPSH_20_CONTROL
 	can_1_init(CAN_1_SPEED_500K);
-#elif ECU_CONTROL
+#elif ECU_TSC1_CONTROL || ECU_PED_CONTROL
 	can_1_init(CAN_1_SPEED_250K);
 #endif
 	can_2_init(CAN_2_SPEED_250K);
@@ -69,7 +69,7 @@ void main_app (void) {
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
-#ifdef ECU_CONTROL
+#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
 	canJ1939_init();
 #elif SPSH_20_CONTROL
 	pc_link_init();
@@ -82,9 +82,11 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#ifdef ECU_CONTROL
+#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
 		J1939_step();
+#ifdef ECU_PED_CONTROL
 		mu6u_step();
+#endif
 		mv8a_step();
 #elif SPSH_20_CONTROL
 		pc_link_step();

@@ -8,8 +8,8 @@
 #define SPEED_RESOL			0.125f // rpm
 #define TORQUE_LIM			125.0f // %
 
-uint8_t EcuSetSpeed (float32_t spd, float32_t trq);
-void EcuControl (float32_t out);
+uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
+void EcuPedControl (float32_t out);
 void SaveEngineHours (PGN_65253_t* data);
 void SavePedalPosition (int8_t th);
 void SaveEngineSpeed (int16_t pos);
@@ -20,7 +20,7 @@ void SaveEngineLP (PGN_65263_t* data);
 void SaveFuelEconomy (PGN_65266_t* data);
 void SaveInletExhaust (PGN_65270_t* data);
 void SaveFuelLevel (int8_t lev);
-int32_t EcuServoPos (void);
-uint8_t EcuGetError (void);
+int32_t EcuPedalPos (void);
+uint8_t EcuPedError (void);
 
 #endif /* APP_DEVICES_ECU_H_ */

@@ -55,7 +55,7 @@ void Torque_loop (torq_val_t val);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
-#ifdef ECU_CONTROL
+#ifdef ECU_PED_CONTROL
 #ifdef MODEL_OBJ
 	#define SPEED_KP			2.00f
 	#define SPEED_KI			0.1f
@@ -90,6 +90,7 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #endif
 float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
+static stime_t StopControlTime;
 
 
 void signals_start_cfg (void) {
@@ -299,8 +300,10 @@ void control_init(void) {
 	ds18b20_init(8);
 #endif
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
-#ifdef ECU_CONTROL
+#ifdef ECU_PED_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
+#endif
+#if ECU_PED_CONTROL | ECU_TSC1_CONTROL
 	mv8a_init(CH2, ADR_MV8A);
 #endif
 #ifndef NO_TORQ_DRIVER
@@ -331,7 +334,7 @@ void control_step (void) {
 }
 //----------------------------------------------------------------------------------------------
 void read_devices (void) {
-	udata32_t crc; uint16_t size;
+	udata32_t crc; uint16_t size; uint32_t i;
 
 //----данные pc
  	pc_device_step();
@@ -401,11 +404,9 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 #ifdef MVA8_DEBUG
- 	sg_st.etcu.i.a[ETCU_AI_TEMP4] = mv8a_read_res(0);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP5] = mv8a_read_res(1);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP6] = mv8a_read_res(8);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP7] = mv8a_read_res(9);
- 	sg_st.etcu.i.a[ETCU_AI_TEMP8] = mv8a_read_res(16);
+ 	for (i = 0; i <= (AO_PC_3MV8A8 - AO_PC_1MV8A1); i++) {
+ 	 	sg_st.etcu.i.a[AO_PC_1MV8A1 + i] = mv8a_read_res(i);
+ 	}
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;
@@ -454,14 +455,15 @@ void read_devices (void) {
 	}
 #endif
 //----данные сервопривода
-#ifdef ECU_CONTROL
+#ifdef ECU_TSC1_CONTROL
+#elif ECU_PED_CONTROL
 #ifdef MU6U_DEBUG
-	sg_st.ta.i.a[0] = EcuServoPos();
+	sg_st.ta.i.a[0] = EcuPedalPos();
 #else
-	if (EcuGetError() == 0) {
+	if (EcuPedError() == 0) {
 		//sg_st.ta.i.a[1] = spsh20_get_status();
 		//if (sg_st.ta.i.a[1] != SERVO_OK) goto servo_err;
-		sg_st.ta.i.a[0] = EcuServoPos();
+		sg_st.ta.i.a[0] = EcuPedalPos();
 	} else {
 		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
 		error.bit.no_ta = 1;
@@ -593,6 +595,7 @@ void work_step (void) {
 		work_stop();
 		return;
 	}
+	StopControlTime = timers_get_finish_time(0);
 	if (state.opr == OPR_START_TEST) {
 		if (timers_get_time_left(time.all) == 0)
 			state.step = ST_STOP_TIME;
@@ -730,7 +733,9 @@ void work_step (void) {
 //--------------------ОСТАНОВКА-------------------------------
 	} else {
 		cmd.opr = ST_STOP;
+#if SERVO_CONTROL
 		servo_stop = true;
+#endif
 		work_stop();
 	}
 }
@@ -906,12 +911,17 @@ void work_stop (void) {
 	}
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
-#ifdef SPSH_20_CONTROL
+#ifdef ECU_TSC1_CONTROL
+	if (timers_get_time_left(StopControlTime) == 0) {
+		StopControlTime = timers_get_finish_time(SPEED_LOOP_TIME);
+		EcuTSC1Control (0, 0);
+	}
+#elif SPSH_20_CONTROL
 	spsh20_set_pos(0);
 #elif SERVO_CONTROL
 	servo_set_out(0);
-#else //ECU_CONTROL
-	EcuControl(0);
+#elif ECU_PED_CONTROL
+	EcuPedControl(0);
 #endif
 #ifdef MODEL_OBJ
 	set(AI_FC_FREQ, 0);
@@ -977,9 +987,12 @@ void init_PID (void) {
 #define SPEED_MUL			-40.00f
 #define SPEED_FACT			45.0f
 #define SERVO_FACT			1.20f
-#ifdef ECU_CONTROL
+#ifdef ECU_TSC1_CONTROL
+	#define ZONE_DEAD_REF		0.0f
+	#define SERVO_STATE			0.0f
+#elif ECU_PED_CONTROL
 	#define ZONE_DEAD_REF		25.0f
-	#define SERVO_STATE			(float32_t)(EcuServoPos() / 1000)
+	#define SERVO_STATE			(float32_t)(EcuPedalPos() / 1000)
 #elif  SERVO_CONTROL
 	#define SERVO_STATE			servo_get_pos()
 	#define ZONE_DEAD_REF		50.0f
@@ -993,26 +1006,15 @@ void init_PID (void) {
  * Управление контуром оборотов
  */
 void Speed_loop (void) {
-#if 0
-	EcuSetSpeed (Speed_Out, float32_t trq);
-#ifdef MODEL_OBJ
-		torq_corr *= TORQUE_FACTOR;
-		pi_out *= (1 - torq_corr);
-		Speed_Out = get_obj(&FrequeObj, pi_out);
-#endif // MODEL_OBJ
-#endif
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		torq_corr = (Torque_Out / TORQUE_MAX);
 		if (torq_corr > 1.0) torq_corr = 1.0;
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
-#ifdef ECU_TSC1_SPEED_CONTROL
-		EcuSetSpeed (task, torq_corr);
-#ifdef MODEL_OBJ
-		//Speed_Out = get_obj(&FrequeObj, pi_out);
-#endif // MODEL_OBJ
-#else // ECU ACCSELERATOR PEDAL INPUT CONTROL
+#ifdef ECU_TSC1_CONTROL
+		EcuTSC1Control(task, torq_corr);
+#endif
 		task -= Speed_Out; // PID input Error
 #ifdef PID_ADAPTIVE
 		float32_t tmp = fabs(task);
@@ -1026,8 +1028,9 @@ void Speed_loop (void) {
 		if (tmp < ZONE_DEAD_REF) task = 0;
 #endif
 		pi_out = arm_pid_f32(&Speed_PID, task);
-#ifdef ECU_CONTROL
-		EcuControl(pi_out);
+#ifndef ECU_TSC1_CONTROL
+#if ECU_PED_CONTROL
+		EcuPedControl(pi_out);
 #elif SPSH_20_CONTROL
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);
@@ -1037,6 +1040,7 @@ void Speed_loop (void) {
 #else
 		servo_set_out(pi_out * SERVO_FACT);
 #endif
+#endif // !ECU_TSC1_CONTROL
 #endif
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
@@ -1046,7 +1050,6 @@ void Speed_loop (void) {
 		pi_out *= (1 - torq_corr);
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
-#endif // ECU_SPEED_CONTRL
 	}
 }
 

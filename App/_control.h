@@ -3,7 +3,11 @@
 #include "_signals.h"
 #include "arm_math.h"
 
+#ifdef ECU_TSC1_CONTROL
+#define SPEED_LOOP_TIME		1000 // цикличность передачи сигнала скорости, мс
+#else
 #define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
+#endif
 #define ERROR_CODE					0x7FFFFFFF
 #define DEF_KEY_DELAY				500		//Антидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мА
