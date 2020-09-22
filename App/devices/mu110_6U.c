@@ -12,7 +12,7 @@ static void mu6u_update_data (char *data, uint8_t len, uint8_t adr, uint8_t func
 }
 
 void mu6u_init (uint8_t ch, uint8_t addr) {
-	uint8_t cnt;
+	uint8_t cnt = 0;
 	ChN = ch;
 	if ((addr <= 247) && (addr > 0)) {
 		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS2_MAX_DEV)) cnt++; //найти свободный указатель

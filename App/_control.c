@@ -32,6 +32,8 @@
 #include "p_745_3829.h"
 #include "servo.h"
 #include "ecu.h"
+#include "smog.h"
+#include "agm501.h"
 
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
@@ -299,7 +301,13 @@ void control_init(void) {
 	ds18b20_init(7);
 	ds18b20_init(8);
 #endif
+#ifdef EXHAUST
+	smog_init(CH1, ADR_SMOG);
+	agm_init(CH1, ADR_AGM);
+#endif
+#ifndef NO_3DPAS_DRIVER
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
+#endif
 #ifdef ECU_PED_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
 #endif
@@ -403,10 +411,20 @@ void read_devices (void) {
  	if (ds18b20_get_error(8)>2)sg_st.etcu.i.a[ETCU_AI_TEMP8] = ERROR_CODE;
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
-#ifdef MVA8_DEBUG
- 	for (i = 0; i <= (AO_PC_3MV8A8 - AO_PC_1MV8A1); i++) {
- 	 	sg_st.etcu.i.a[AO_PC_1MV8A1 + i] = mv8a_read_res(i);
+#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
+ 	for (i = 0; i < MV8A_INP; i++) {
+		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
  	}
+#if 0
+ 	for (i = 0; i < /*AGM_CH*/10; i++) {
+		set(AO_PC_1MV8A1 + i + MV8A_INP, agm_read_res(i));
+ 	}
+	set(AO_PC_ECU_12, smog_get_N0_43());
+	set(AO_PC_ECU_13, smog_get_NH());
+	set(AO_PC_ECU_14, smog_get_K());
+	set(AO_PC_ECU_15, smog_get_T());
+	set(AO_PC_ECU_16, bcu_get_puls());
+#endif
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;
@@ -415,14 +433,10 @@ void read_devices (void) {
 		sg_st.bcu.i.d=bcu_get_in();
 		//sg_st.bcu.i.a[0] = bcu_get_t();
 		//sg_st.bcu.i.a[0] = bcu_get_p();
-#ifdef NO_BCU_SENS
-		t_bcu = 50000;
-#else
 		t_bcu = (bcu_get_t() * 24) / 12 + 7000;
-#endif
 		if ((t_bcu > 110000) || (t_bcu < 10000)) t_bcu = ERROR_CODE;
 		sg_st.bcu.i.a[1] = t_bcu; // температура вместо давления в гидротормозе
-		sg_st.bcu.i.a[2] = bcu_get_position();
+		//sg_st.bcu.i.a[2] = bcu_get_position();
 		if (sg_st.bcu.i.d & 0x01) error.bit.emergancy_stop = 1;
 		else error.bit.emergancy_stop = 0;
 	} else {
@@ -507,6 +521,7 @@ servo_stop_error:
 		sg_st.ta.i.a[0] = servo_get_pos()  * 1000;
 	}
 #endif
+#ifndef NO_3DPAS_DRIVER
 //----данные датчика параметров атмосферы
 	if (nl_3dpas_err_link() == 0) {
 		sg_st.aps.i.a[0] = nl_3dpas_get_temperature();
@@ -517,6 +532,7 @@ servo_stop_error:
 		sg_st.aps.i.a[1] =
 		sg_st.aps.i.a[2] = ERROR_CODE;
 	}
+#endif
 //---данные датчика момента
 #ifndef NO_TORQ_DRIVER
 	if (t46_err_link() == 0) {
@@ -783,11 +799,7 @@ void set_indication (void) {
 		else val = ERROR_CODE;
 	}
 	set(AO_PC_FUEL_LEVEL, val); // Уровень топлива XP8
-#ifdef NO_BCU_SENS
-	val = 50000;
-#else
 	val = (st(AI_T_OIL_OUT) * 100000) / 92; // Уровень масла XP7
-#endif
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
 		else val = ERROR_CODE;
@@ -855,8 +867,8 @@ void set_indication (void) {
 	set(AO_PC_TROTTLE, st(AI_SERVO_POSITION));		//Аналоговый: положение педали газа
 #endif
 	//сигналы гидротормоза
-	set(AO_PC_T_BRAKE,	st(AI_T_OIL_BRAKE)); //Аналоговый: Температура в гидротормозе
-	set(AO_PC_P_BRAKE,	st(AI_P_OIL_BRAKE)); //Аналоговый: давление в гидротормозе
+	set(AO_PC_T_BRAKE,	st(AI_T_OIL_BRAKE)); //Аналоговый:
+	set(AO_PC_P_BRAKE,	st(AI_P_OIL_BRAKE)); //Аналоговый: Температура в гидротормозе
 	set(AO_PC_SET_BRAKE, st(AO_HYDROSTATION));	//Аналоговый: Установленная мощность гидротормоза в м%
 	//время и дата
 	//set(AO_PC_TIME, rtc_sens_get_time());

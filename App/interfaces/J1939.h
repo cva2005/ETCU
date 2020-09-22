@@ -1,6 +1,7 @@
 #ifndef J1939_H
 #define J1939_H
 
+#include <stdbool.h>
 #include "types.h"
 
 typedef void (*J1939rxFun_t) (char *data, uint8_t len, uint32_t adr);
@@ -141,6 +142,24 @@ typedef struct PGN_61444 { // Electronic Engine Controller 1 (25-50 мсек)
 #pragma pack()
 
 /*
+2659 Flow rate of gas through the EGR system. Flow rate of the exhaust
+gas being recirculated into the combustion air.
+0 to 3212.75 kg/h
+0.05 kg/h per bit
+132 Mass flow rate of fresh air entering the engine air intake, before any EGR mixer, if used.
+Flow rate of fresh air conducted to the engine cylinders to support combustion.
+0 to 3212.75 kg/h
+0.05 kg/h per bit
+*/
+#pragma pack(1)
+typedef struct PGN_61450 { // Engine Gas Flow Rate (50 мсек)
+    uint16_t RecircFlow; // 2659 Engine Exhaust Gas Recirculation (EGR) Mass Flow Rate
+    uint16_t AirMassFlow; // 132 Engine Inlet Air Mass Flow Rate
+    uint32_t Unused;
+} PGN_61450_t;
+#pragma pack()
+
+/*
 156 Давление топлива в рейле Engine Injector Timing Rail 1 Pressure
 */
 #pragma pack(1)
@@ -263,9 +282,11 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 } PGN_65276_t;
 #pragma pack()
 
+#define J1939_ERR_TIME		200 // , мс
 #define PGN_00000 00000 << 8
 #define PGN_61443 61443 << 8
 #define PGN_61444 61444 << 8
+#define PGN_61450 61450 << 8
 #define PGN_65243 65243 << 8
 #define PGN_65247 65247 << 8
 #define PGN_65253 65253 << 8
@@ -291,5 +312,6 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 void canJ1939_init(void);
 void J1939_step (void);
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd);
+bool J1939_error (void);
 
 #endif // #ifndef J1939_H

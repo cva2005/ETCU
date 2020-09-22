@@ -49,6 +49,8 @@ typedef struct {
 #define NODE_ID_BCU 	1 // Адрес CanOpen модуля управления гидротормозом
 #define NODE_ID_FC		2 // Адрес CanOpen/ModBus преобразователя частоты
 #define SPSH20_ADR		1 // Адрес CanOpen сервопривода
+#define ADR_SMOG 		1 // Адрес ModBus дымомера СМОГ 2-01
+#define ADR_AGM 		2 // Адрес ModBus газоанализатора AGM 501
 #define ADR_NL_3DPAS 	1 // Адрес ModBus датчика параметров атмосферы NL-3DPAS
 #define ADR_MV8A3 		5 // Адрес ModBus2 аналогового модуля MV110-8A
 #define ADR_MV8A2 		4 // Адрес ModBus2 аналогового модуля MV110-8A

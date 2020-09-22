@@ -24,11 +24,12 @@ static void mv8a_update_data (char *data, uint8_t len, uint8_t adr, uint8_t func
 		Data[inp] = int_res;
 		if (++inp == INP_NUM) inp = 0;
 		mv8a_tx_time = timers_get_finish_time(MV8A_DATA_TX_TIME); // время отправки следующего пакета
+		mv8a_connect_time = timers_get_finish_time(MV8A_CONNECT_TIME); // время ответа от slave устйройства
 	}
 }
 
 void mv8a_init (uint8_t ch, uint8_t addr) {
-	uint8_t cnt;
+	uint8_t cnt = 0;
 	ChN = ch;
 	if ((addr <= 247) && (addr > 0)) {
 		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS2_MAX_DEV)) cnt++; //найти свободный указатель
@@ -44,6 +45,11 @@ void mv8a_init (uint8_t ch, uint8_t addr) {
 }
 
 void mv8a_step (void) {
+	if (timers_get_time_left(mv8a_connect_time) == 0) {
+		Data[inp] = ERROR_CODE;
+		if (++inp == INP_NUM) inp = 0;
+		mv8a_connect_time = timers_get_finish_time(MV8A_CONNECT_TIME);
+	}
 	if (timers_get_time_left(mv8a_tx_time) == 0) {
 		uint8_t addr = mv8a_addr + (inp / CH_NUM);
 		if (modbus_get_busy(ChN, addr, Low_pr)) return; // интерфейс занят

@@ -59,5 +59,6 @@ int32_t bcu_get_frequency(void);		//Возвращает значение частоты с датчика момент
 int32_t bcu_get_power(void);			//Возвращает значение мощности с датчика момента
 uint8_t bcu_err_link (void);			//Возвращает состояние связи с BCU
 void bcu_update_data (char *data, uint8_t len, uint32_t adr);	//Обработчик пакетов принятых по CanOpen от BCU
+int32_t bcu_get_puls (void);
 
 #endif /* APP_DEVICES_BCU_H_ */

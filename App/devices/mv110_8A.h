@@ -15,9 +15,10 @@ typedef	struct {
 #define MV8A_CONNECT_TIME	300	// Время ответа при прев. связь считается потерянной
 #define MV8A_DATA_TX_TIME	100	// Таймаут между отправляемыми пакетами
 #define MV8A_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
-#define MV8A_NUM 			3 	// количество модулей MV110-8A
+#define MV8A_NUM 			2 	// количество модулей MV110-8A
 #define CH_NUM				8 	// количество каналов в MV110-8A
-#define INP_NUM				20 	// количество используемых каналов измерения
+#define INP_NUM				9 	// количество используемых каналов измерения
+#define MV8A_INP			INP_NUM
 
 void mv8a_init (uint8_t ch, uint8_t addr);	// Инициализация устйроства
 int32_t mv8a_read_res (uint8_t ch);	// результат измерения

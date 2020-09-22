@@ -36,6 +36,8 @@
 #include "_control.h"
 #include "timers.h"
 #include "servo.h"
+#include "smog.h"
+#include "agm501.h"
 
 stime_t led_blink_time;
 
@@ -51,7 +53,11 @@ void main_app (void) {
 	HAL_IWDG_Start(&hiwdg);
 #endif
 	adc_init();
+#ifdef EXHAUST
+	//rs485_1_init(4800);
+#else
 	rs485_1_init(38400);
+#endif
 	rs485_2_init(115200);
 	wifi_hf_init(115200);//wifi_hf_init(460800);
 #ifdef SPSH_20_CONTROL
@@ -82,6 +88,10 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
+#ifdef	EXHAUST
+		agm_step();
+		smog_step();
+#endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
 		J1939_step();
 #ifdef ECU_PED_CONTROL
@@ -102,7 +112,9 @@ void main_app (void) {
 #ifdef LOCAL_TEMP
 		ds18b20_step();
 #endif
+#ifndef NO_3DPAS_DRIVER
 		nl_3dpas_step();
+#endif
 #ifndef NO_TORQ_DRIVER
 		t46_step();
 #endif

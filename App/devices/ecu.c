@@ -6,7 +6,6 @@
 #include "mu110_6U.h"
 #include "ecu.h"
 
-extern sg_t sg_st; //состояние сигналов
 int32_t PedalPos = 0;
 
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
@@ -46,11 +45,11 @@ void SaveRailPressure (int16_t press) {
 }
 
 void SaveEngineTemp (PGN_65262_t* data) {
-	sg_st.etcu.i.a[AO_PC_ECU_01] = data->Coolant_T * 1000;
+	set(AO_PC_ECU_01, data->Coolant_T * 1000);
 }
 
 void SaveEngineLP (PGN_65263_t* data) {
-	sg_st.etcu.i.a[AO_PC_ECU_02] = data->Oil_P * 1000;
+	set(AO_PC_ECU_02, data->Oil_P * 1000);
 }
 
 void SaveFuelEconomy (PGN_65266_t* data) {
@@ -60,5 +59,10 @@ void SaveInletExhaust (PGN_65270_t* data) {
 }
 
 void SaveFuelLevel (int8_t lev) {
-	sg_st.etcu.i.a[AO_PC_ECU_03] = lev * 1000;
+	set(AO_PC_ECU_03, lev * 1000);
+}
+
+void SaveAirFlow (int16_t flow) {
+	float32_t f = (float32_t)flow * FLOW_WEIGHT;
+	set(AO_PC_ECU_04, (int32_t)(f * 1000.0));
 }

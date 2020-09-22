@@ -7,6 +7,7 @@
 #define DAC_FACT			0.060f
 #define SPEED_RESOL			0.125f // rpm
 #define TORQUE_LIM			125.0f // %
+#define FLOW_WEIGHT			0.05f // kg/h per bit
 
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
 void EcuPedControl (float32_t out);
@@ -20,6 +21,7 @@ void SaveEngineLP (PGN_65263_t* data);
 void SaveFuelEconomy (PGN_65266_t* data);
 void SaveInletExhaust (PGN_65270_t* data);
 void SaveFuelLevel (int8_t lev);
+void SaveAirFlow (int16_t flow);
 int32_t EcuPedalPos (void);
 uint8_t EcuPedError (void);
 

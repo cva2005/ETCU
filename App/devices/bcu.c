@@ -29,6 +29,7 @@ static stime_t bcu_tx_time;		//таймер отправки пакетов
 
 static uint32_t bcu_k_pressure=BCU_MAX_PRESSURE/(BCU_I_MAX_PRESSURE-BCU_I_MIN_PRESSURE); //K - коэффициент пересчёта датчика давления
 static uint32_t bcu_b_pressure=BCU_I_MIN_PRESSURE; 										//B - смещение дачтика давления
+static int32_t puls; // значение расхода
 
 /**
   * @brief Инициализация устйроства управления гидротормозом (BCU)
@@ -71,71 +72,47 @@ extern CanOpen_rx_object_t CanOpen_rx_object[MAX_DEV_CANOPEN]; //указатели на фу
   * 		len: длина принятых данных
   * 		adr: COB ID пакета (CAN адрес)
   */
-void bcu_update_data (char *data, uint8_t len, uint32_t adr)
-{uint16_t object;
-
-	if (CanOpen_get_nodeid(adr)==bcu_node_id)
-		{
-		bcu_connect_time=timers_get_finish_time(BCU_CONNECT_TIME); //установить счётчик ожидания подключения
-		object=CanOpen_get_object(adr);
-		if (object==PDO1_TX_SLAVE)
-			{
-			if (len>=2)
-				{
+void bcu_update_data (char *data, uint8_t len, uint32_t adr) {
+	uint16_t object;
+	if (CanOpen_get_nodeid(adr) == bcu_node_id) {
+		bcu_connect_time = timers_get_finish_time(BCU_CONNECT_TIME);
+		object = CanOpen_get_object(adr);
+		if (object == EMERGENCY)
+			if (len >= 1) bcu_err.byte = data[0];
+		if (object == PDO1_TX_SLAVE) {
+			if (len >= 2) {
 				bcu_t_st.byte[0]=data[0];
 				bcu_t_st.byte[1]=data[1];
-				}
-			if (len>=4)
-				{
-				bcu_p_st.byte[0]=data[2];
-				bcu_p_st.byte[1]=data[3];
-				}
-			if (len>=6)
-				{
-				bcu_position_st.byte[0]=data[4];
-				bcu_position_st.byte[1]=data[5];
-				}
+			}
+			if (len>=6) puls = *((uint32_t *)&data[2]);
+			if (len==8) bcu_in_st.byte=data[7];
+		}
+		/*if (object == PDO2_TX_SLAVE) {
+			if (len >= 2) {
+				bcu_torque_st.byte[0] = data[0];
+				bcu_torque_st.byte[1] = data[1];
+			}
+			if (len >= 4) {
+				bcu_frequency_st.byte[0] = data[2];
+				bcu_frequency_st.byte[1] = data[3];
+			}
+			if (len >= 6) {
+				bcu_power_st.byte[0] = data[4];
+				bcu_power_st.byte[1] = data[5];
+			}
+		}
+		if (object==SDO_TX_SLAVE)
+			{
 			if (len==8)
 				{
-				bcu_in_st.byte=data[7];
+				if ((CanOpen_get_index(data)==0x6200)&&(CanOpen_get_subindex(data)==0x00))
+					{
+					bcu_mask_st.byte[0]=data[4];
+					}
 				}
 			}
-		if (object==PDO2_TX_SLAVE)
-			{
-			if (len>=2)
-				{
-				bcu_torque_st.byte[0]=data[0];
-				bcu_torque_st.byte[1]=data[1];
-				}
-			if (len>=4)
-				{
-				bcu_frequency_st.byte[0]=data[2];
-				bcu_frequency_st.byte[1]=data[3];
-				}
-			if (len>=6)
-				{
-				bcu_power_st.byte[0]=data[4];
-				bcu_power_st.byte[1]=data[5];
-				}
-			}
-		if (object==EMERGENCY)
-			{
-			if (len>=1)
-				{
-				bcu_err.byte=data[0];
-				}
-			}
-//		if (object==SDO_TX_SLAVE)
-//			{
-//			if (len==8)
-//				{
-//				if ((CanOpen_get_index(data)==0x6200)&&(CanOpen_get_subindex(data)==0x00))
-//					{
-//					bcu_mask_st.byte[0]=data[4];
-//					}
-//				}
-//			}
-		}
+		}*/
+	}
 }
 
 /**
@@ -268,14 +245,18 @@ int32_t bcu_get_power (void)
 	return(bcu_power_st.word);
 }
 
+int32_t bcu_get_puls (void)
+{
+	return puls;
+}
+
 /**
   * @brief  Возвращает состояние связи с BCU
   *
   * @retval состояние связи: 1-ошибка связи (нет данных от BCU) 0-связь с BCU исправна
   */
-uint8_t bcu_err_link (void)
-{
-	//bcu_step();
-	if (timers_get_time_left(bcu_connect_time)==0) return(1);
+uint8_t bcu_err_link (void) {
+	if (timers_get_time_left(bcu_connect_time) == 0) return (1);
 	else return(0);
 }
+

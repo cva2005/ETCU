@@ -1,10 +1,12 @@
-#include <stdbool.h>
 #include "can_1.h"
 #include "J1939.h"
 #include "timers.h"
 #include "ecu.h"
+#include "_control.h"
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
+static stime_t err_time;
+static bool time_out;
 
 void canJ1939_init (void) {
 	//can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -30,8 +32,15 @@ void J1939_step (void) {
 		}
 		if (read_st) { //если были прочитаны пакеты
 			j1939Receive(can_msg, can_length, ((J1939_ID_t *)&can_id));
+			time_out = false;
+			err_time = timers_get_finish_time(J1939_ERR_TIME);
 		}
 	} while (read_st);
+	if (timers_get_time_left(err_time) == 0) {
+		time_out = true;
+		for (uint32_t i = 0; i < AO_PC_ECU_05 - AO_PC_ECU_01; i++)
+			set(AO_PC_ECU_01 + i, ERROR_CODE);
+	}
 }
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
@@ -41,6 +50,9 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 		break;
 	case 61444: // Electronic Engine Controller 1 (25-50 мсек)
 		SaveEngineSpeed(((PGN_61444_t *)data)->EngineSpeed);
+		break;
+	case 61450: // Electronic Engine Controller 1 (50 мсек)
+		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
 		break;
 	case 65243: // Engine Fluid Level/Pressure 2 (500 мсек)
 		SaveRailPressure(((PGN_65243_t *)data)->TimingRail_1_P);
@@ -95,6 +107,10 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	}
 	png.ControlConditions = cc; // ToDo: зависит от нагрузки
 	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
+}
+
+bool J1939_error (void) {
+	return time_out;
 }
 
 #if 0

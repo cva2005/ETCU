@@ -32,6 +32,8 @@ void rs485_1_init (uint32_t speed)
 //	RS485_1_UART.Instance = USART2;
 	RS485_1_UART.Init.BaudRate = speed;
 //	RS485_1_UART.Init.WordLength = UART_WORDLENGTH_8B;
+	if (speed == 9600)  RS485_1_UART.Init.StopBits = UART_STOPBITS_2;
+	else RS485_1_UART.Init.StopBits = UART_STOPBITS_1;
 //	RS485_1_UART.Init.StopBits = UART_STOPBITS_1;
 //	RS485_1_UART.Init.Parity = UART_PARITY_NONE;
 //	RS485_1_UART.Init.Mode = UART_MODE_TX_RX;
