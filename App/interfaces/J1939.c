@@ -19,7 +19,7 @@ void canJ1939_init (void) {
 	can_1_set_filter32(PGN_65263, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65266, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65270, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_65276, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_65276, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 }
 
 void J1939_step (void) {
@@ -45,14 +45,27 @@ void J1939_step (void) {
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	switch (id->PGN) {
+	case 61450: // Electronic Engine Controller 1 (50 мсек)
+		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
+		break;
+	case 65262: // Engine Temperature 1 (1000 мсек)
+		SaveEngineTemp((PGN_65262_t *)data);
+		break;
+	case 65263: // Engine Fluid Level/Pressure 1 (500 мсек)
+		SaveEngineLP((PGN_65263_t *)data);
+		break;
+	case 65266: // Fuel Economy (Liquid) (100 мсек)
+		SaveFuelRate((PGN_65266_t *)data);
+		break;
+	case 65270: // Inlet/Exhaust Conditions 1 (500 мсек)
+		SaveInletExhaust((PGN_65270_t *)data);
+		break;
+#if 0
 	case 61443: // Electronic Engine Controller 2 (50 мсек)
 		SavePedalPosition(((PGN_61443_t *)data)->PdPos1);
 		break;
 	case 61444: // Electronic Engine Controller 1 (25-50 мсек)
 		SaveEngineSpeed(((PGN_61444_t *)data)->EngineSpeed);
-		break;
-	case 61450: // Electronic Engine Controller 1 (50 мсек)
-		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
 		break;
 	case 65243: // Engine Fluid Level/Pressure 2 (500 мсек)
 		SaveRailPressure(((PGN_65243_t *)data)->TimingRail_1_P);
@@ -63,21 +76,10 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	case 65253: // Engine Hours, Revolutions (по запросу)
 		SaveEngineHours((PGN_65253_t *)data);
 		break;
-	case 65262: // Engine Temperature 1 (1000 мсек)
-		SaveEngineTemp((PGN_65262_t *)data);
-		break;
-	case 65263: // Engine Fluid Level/Pressure 1 (500 мсек)
-		SaveEngineLP((PGN_65263_t *)data);
-		break;
-	case 65266: // Fuel Economy (Liquid) (100 мсек)
-		SaveFuelEconomy((PGN_65266_t *)data);
-		break;
-	case 65270: // Inlet/Exhaust Conditions 1 (500 мсек)
-		SaveInletExhaust((PGN_65270_t *)data);
-		break;
 	case 65276: // Dash Display (1000 мсек)
 		SaveFuelLevel(((PGN_65276_t *)data)->Fuel_L1);
 		break;
+#endif
 	}
 }
 

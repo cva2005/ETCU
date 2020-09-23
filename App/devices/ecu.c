@@ -28,6 +28,43 @@ int32_t EcuPedalPos (void) {
 	return PedalPos;
 }
 
+void SaveEngineTemp (PGN_65262_t* data) {
+	float32_t f = (float32_t)data->Oil_T * OIL_T_WEIGHT;
+	Data[0] =  (int32_t)(f * 1000.0); // -273 to 1734.96875 deg C (0.03125 deg C/bit)
+}
+
+void SaveEngineLP (PGN_65263_t* data) {
+	float32_t f = (float32_t)data->Oil_P * OIL_P_WEIGHT;
+	Data[1] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
+	f = (float32_t)data->FuelDelivery_P * OIL_P_WEIGHT;
+	Data[2] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
+
+}
+
+void SaveAirFlow (int16_t flow) {
+	float32_t f = (float32_t)flow * FLOW_WEIGHT;
+	Data[3] = (int32_t)(f * 1000.0);
+}
+
+void SaveFuelRate (PGN_65266_t* data) {
+	float32_t f = (float32_t)data->FuelRate * RATE_WEIGHT;
+	Data[4] = (int32_t)(f * 1000.0); // 0 to 3,212.75 L/h (0.05 L/h per bit)
+	f = (float32_t)data->InstantaneousEconomy / F_ECON_WEIGHT;
+	Data[5] = (int32_t)(f * 1000.0); // 0 to 125.5 km/L (1/512 km/L per bit)
+}
+
+void SaveInletExhaust (PGN_65270_t* data) {
+	float32_t f = (float32_t)data->AirInlet_P * AIR_P_WEIGHT;
+	Data[6] = (int32_t)(f * 1000.0); // 0 to 500 kPa (2 kPa/bit)
+	f = (float32_t)data->Manifold_1_T * AIR_T_WEIGHT;
+	Data[7] = (int32_t)(f * 1000.0); // -40 to 210 deg C (1 deg C/bit)
+
+}
+
+#if 0
+void SaveFuelLevel (int8_t lev) {
+}
+
 void SaveEngineHours (PGN_65253_t* data) {
 }
 
@@ -42,33 +79,7 @@ void SaveTorqPercent (int8_t perc) {
 
 void SaveRailPressure (int16_t press) {
 }
-
-void SaveEngineTemp (PGN_65262_t* data) {
-	Data[0] = data->Coolant_T * 1000;
-	//set(AO_PC_ECU_08, data->Coolant_T * 1000);
-}
-
-void SaveEngineLP (PGN_65263_t* data) {
-	Data[1] = data->Oil_P * 1000;
-	//set(AO_PC_ECU_09, data->Oil_P * 1000);
-}
-
-void SaveFuelEconomy (PGN_65266_t* data) {
-}
-
-void SaveInletExhaust (PGN_65270_t* data) {
-}
-
-void SaveFuelLevel (int8_t lev) {
-	Data[2] = lev * 1000;
-	//set(AO_PC_ECU_10, lev * 1000);
-}
-
-void SaveAirFlow (int16_t flow) {
-	float32_t f = (float32_t)flow * FLOW_WEIGHT;
-	Data[3] = (int32_t)(f * 1000.0);
-	//set(AO_PC_ECU_11, (int32_t)(f * 1000.0));
-}
+#endif
 
 int32_t ecu_get_data (uint8_t ch) {
 	return Data[ch];
