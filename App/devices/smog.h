@@ -5,11 +5,11 @@
 #include "_control.h"
 
 
-#define SMOG_CONNECT_TIME	500	// Время ответа при прев. связь считается потерянной
-#define SMOG_DATA_TX_TIME	1000	// Таймаут между отправляемыми пакетами
-#define SMOG_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
-#define SMOG_CH				4	// каналов измерения
-#define N_BYTE				3	// байт в поле данных
+#define SMOG_CONNECT_TIME	4000 // Время ответа при прев. связь считается потерянной
+#define SMOG_DATA_TX_TIME	2000 // Таймаут между отправляемыми пакетами
+#define SMOG_MAX_ERR_SEND	3 // Допустимое количество запросов без ответа
+#define SMOG_CH				4 // каналов измерения
+#define N_BYTE				3 // байт в поле данных
 
 #pragma pack(1)
 typedef	struct {

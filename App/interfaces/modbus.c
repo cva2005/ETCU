@@ -233,7 +233,10 @@ uint8_t modbus_tx (uint8_t ch, uint8_t *data, uint16_t len) {
 	if (modbus_busy[ch]) return(0);
 	if (f_tx_data[ch](data, len)) {
 		modbus_busy[ch] = 1;
-		modbus_tx_time[ch] = timers_get_finish_time(MODBUS_MAX_WAIT_TIME);
+		uint32_t del;
+		if (ch == CH1) del = (MODBUS_MAX_WAIT_TIME * 2);
+		else del = MODBUS_MAX_WAIT_TIME;
+		modbus_tx_time[ch] = timers_get_finish_time(del);
 		return (1);
 	}
 	return (0);

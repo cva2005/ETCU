@@ -1,12 +1,11 @@
 #include <string.h>
 #include "timers.h"
 #include "types.h"
-#include "_signals.h"
-#include "_control.h"
 #include "mu110_6U.h"
 #include "ecu.h"
 
 int32_t PedalPos = 0;
+static int32_t Data[ECU_CH];
 
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
@@ -45,11 +44,13 @@ void SaveRailPressure (int16_t press) {
 }
 
 void SaveEngineTemp (PGN_65262_t* data) {
-	set(AO_PC_ECU_01, data->Coolant_T * 1000);
+	Data[0] = data->Coolant_T * 1000;
+	//set(AO_PC_ECU_08, data->Coolant_T * 1000);
 }
 
 void SaveEngineLP (PGN_65263_t* data) {
-	set(AO_PC_ECU_02, data->Oil_P * 1000);
+	Data[1] = data->Oil_P * 1000;
+	//set(AO_PC_ECU_09, data->Oil_P * 1000);
 }
 
 void SaveFuelEconomy (PGN_65266_t* data) {
@@ -59,10 +60,17 @@ void SaveInletExhaust (PGN_65270_t* data) {
 }
 
 void SaveFuelLevel (int8_t lev) {
-	set(AO_PC_ECU_03, lev * 1000);
+	Data[2] = lev * 1000;
+	//set(AO_PC_ECU_10, lev * 1000);
 }
 
 void SaveAirFlow (int16_t flow) {
 	float32_t f = (float32_t)flow * FLOW_WEIGHT;
-	set(AO_PC_ECU_04, (int32_t)(f * 1000.0));
+	Data[3] = (int32_t)(f * 1000.0);
+	//set(AO_PC_ECU_11, (int32_t)(f * 1000.0));
 }
+
+int32_t ecu_get_data (uint8_t ch) {
+	return Data[ch];
+}
+

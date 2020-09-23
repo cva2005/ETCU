@@ -412,19 +412,28 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
- 	for (i = 0; i < MV8A_INP; i++) {
+	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
+		set(AO_PC_1MV8A1 + i, ERROR_CODE);
+	else for (i = 0; i < MV8A_INP; i++)
 		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
+	if (agm_err_link()) for (i = 0; i < AGM_CH; i++)
+		set((AO_PC_1MV8A1 + MV8A_INP) + i, ERROR_CODE);
+	else for (i = 0; i < AGM_CH; i++)
+		set((AO_PC_1MV8A1 + MV8A_INP) + i, agm_read_res(i));
+ 	if (smog_err_link()) for (i = 0; i < SMOG_CH; i++)
+ 		set(AO_PC_ECU_12 + i, ERROR_CODE);
+  	else {
+ 		set(AO_PC_ECU_12, smog_get_N0_43());
+ 		set(AO_PC_ECU_13, smog_get_NH());
+ 		set(AO_PC_ECU_14, smog_get_K());
+ 		set(AO_PC_ECU_15, smog_get_T());
  	}
-#if 0
- 	for (i = 0; i < /*AGM_CH*/10; i++) {
-		set(AO_PC_1MV8A1 + i + MV8A_INP, agm_read_res(i));
- 	}
-	set(AO_PC_ECU_12, smog_get_N0_43());
-	set(AO_PC_ECU_13, smog_get_NH());
-	set(AO_PC_ECU_14, smog_get_K());
-	set(AO_PC_ECU_15, smog_get_T());
-	set(AO_PC_ECU_16, bcu_get_puls());
-#endif
+ 	if (J1939_error()) for (i = 0; i < 4; i++)
+		set(AO_PC_ECU_08 + i, ERROR_CODE);
+ 	else for (i = 0; i < 4; i++)
+ 		set(AO_PC_ECU_08 + i, ecu_get_data(i));
+ 	if (bcu_err_link()) set(AO_PC_ECU_16, ERROR_CODE);
+ 	else set(AO_PC_ECU_16, bcu_get_puls());
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;

@@ -282,7 +282,7 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 } PGN_65276_t;
 #pragma pack()
 
-#define J1939_ERR_TIME		200 // , мс
+#define J1939_ERR_TIME		500 // , мс
 #define PGN_00000 00000 << 8
 #define PGN_61443 61443 << 8
 #define PGN_61444 61444 << 8

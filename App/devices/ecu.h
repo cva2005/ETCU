@@ -3,6 +3,7 @@
 #include "arm_math.h"
 #include "J1939.h"
 
+#define ECU_CH				10
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
 #define DAC_FACT			0.060f
 #define SPEED_RESOL			0.125f // rpm
@@ -24,5 +25,6 @@ void SaveFuelLevel (int8_t lev);
 void SaveAirFlow (int16_t flow);
 int32_t EcuPedalPos (void);
 uint8_t EcuPedError (void);
+int32_t ecu_get_data (uint8_t ch);
 
 #endif /* APP_DEVICES_ECU_H_ */

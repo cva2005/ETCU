@@ -63,7 +63,7 @@ void smog_step (void) {
 	}
 	if (timers_get_time_left(tx_time) == 0) {
 		if (modbus_get_busy(ChN, Addr, Hi_pr)) return; // интерфейс занят
-		rs485_1_init(4800);
+		rs485_1_reinit(4800);
 		if (modbus_rd_hold_reg(ChN, Addr, N0_43_REG, REG_NUM)) {
 			tx_time = timers_get_finish_time(SMOG_DATA_TX_TIME);
 			connect_time = timers_get_finish_time(SMOG_CONNECT_TIME);
