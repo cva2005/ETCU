@@ -47,7 +47,7 @@ void main_app (void) {
 	while (timers_get_time_left(led_blink_time));
 	static IWDG_HandleTypeDef hiwdg;
 	hiwdg.Instance = IWDG;
-	hiwdg.Init.Prescaler = IWDG_PRESCALER_8;
+	hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
 	hiwdg.Init.Reload = 4095;
 	HAL_IWDG_Init(&hiwdg);
 	HAL_IWDG_Start(&hiwdg);

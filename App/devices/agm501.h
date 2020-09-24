@@ -9,6 +9,9 @@
 #define AGM_DATA_TX_TIME	1000	// Таймаут между отправляемыми пакетами
 #define AGM_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
 #define AGM_CH				21	// каналов измерения
+#define FIRST_IN_REG		0x0000
+#define TASK_REG			0x0000
+#define TASK_LEN			4
 
 #pragma pack(1)
 typedef	struct {
@@ -24,7 +27,6 @@ typedef	struct {
 } agm_rx_t;
 #pragma pack()
 
-#define FIRST_IN_REG	0x0000
 /*
  * Res[0] - Ta, deg.C
  * Res[1] - Тg 1-й канал, deg.C
