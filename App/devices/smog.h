@@ -5,8 +5,9 @@
 #include "_control.h"
 
 
-#define SMOG_CONNECT_TIME	4000 // Время ответа при прев. связь считается потерянной
-#define SMOG_DATA_TX_TIME	2000 // Таймаут между отправляемыми пакетами
+#define SMOG_CONNECT_TIME	3000 // Время ответа при прев. связь считается потерянной
+#define SMOG_DATA_TX_TIME	1500 // Таймаут между отправляемыми пакетами
+#define REINIT_DELAY		100
 #define SMOG_MAX_ERR_SEND	3 // Допустимое количество запросов без ответа
 #define SMOG_CH				4 // каналов измерения
 #define N_BYTE				3 // байт в поле данных

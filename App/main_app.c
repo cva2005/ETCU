@@ -94,10 +94,10 @@ void main_app (void) {
 #endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
 		J1939_step();
+		mv8a_step();
 #ifdef ECU_PED_CONTROL
 		mu6u_step();
 #endif
-		mv8a_step();
 #elif SPSH_20_CONTROL
 		pc_link_step();
 		spsh20_step();

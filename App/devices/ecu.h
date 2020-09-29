@@ -15,7 +15,9 @@
 #define OIL_T_WEIGHT		0.03125f // 0.03125 deg C/bit
 #define AIR_P_WEIGHT		2.0f // 2 kPa/bit
 #define AIR_T_WEIGHT		1.0f // 1 deg C/bit
+#define TSC1_STOP_RETRY		20
 
+bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
 void EcuPedControl (float32_t out);
 void SavePedalPosition (int8_t th);

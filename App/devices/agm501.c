@@ -8,14 +8,13 @@
 static uint8_t ChN, Addr, err_send, Cmd, ChS;
 static uint16_t Status, Error, Mode;
 static stime_t connect_time, tx_time;
-static int32_t task_old;
+static int16_t cmd_reg, mode_reg;
 agm_rx_t rx;
 static int32_t Res[AGM_CH];
 
 static void agm_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 	if (adr != Addr) return;
 	err_send = 0;
-	task_old = 0;
 	if (function == MODBUS_READ_INPUTS_REGISTERS) {
 		int32_t int_res;
 		agm_rx_t *rx = (agm_rx_t *)data;
@@ -25,13 +24,14 @@ static void agm_update_data (char *data, uint8_t len, uint8_t adr, uint8_t funct
 		Mode = rx->mode;
 		Cmd = rx->cmd;
 		ChS = rx->ch;
-		tx_time = timers_get_finish_time(AGM_DATA_TX_TIME); // время отправки следующего пакета
+		tx_time = timers_get_finish_time(AGM_DATA_TX_TIME / 2); // время отправки следующего пакета
 		connect_time = timers_get_finish_time(AGM_CONNECT_TIME); // время ответа от slave устйройства
 	}
 }
 
 void agm_init (uint8_t ch, uint8_t addr) {
 	uint8_t cnt = 0;
+	cmd_reg = mode_reg = 0;
 	ChN = ch;
 	if ((addr <= 247) && (addr > 0)) {
 		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS2_MAX_DEV)) cnt++; //найти свободный указатель
@@ -51,15 +51,25 @@ void agm_step (void) {
 		connect_time = timers_get_finish_time(AGM_CONNECT_TIME);
 	}
 	if (timers_get_time_left(tx_time) == 0) {
-		if (modbus_get_busy(ChN, Addr, /*Low_pr*/Hi_pr)) return; // интерфейс занят
+		if (modbus_get_busy(ChN, Addr, Low_pr)) return; // интерфейс занят
 		rs485_1_reinit(9600);
-		int32_t task_reg = st(AI_PC_DURATION/*AI_PC_GA_TASK*/);
-		if (task_reg != task_old) {
-			task_old = task_reg;
-			if (modbus_rd_hold_reg(ChN, Addr, TASK_REG, TASK_LEN))
+		int16_t reg = /*st(AI_PC_GA_TASK) >> 16;*/MODE_DATA;
+		if (reg != mode_reg) {
+			if (modbus_wr_1reg(ChN, Addr, MODE_REG, reg)) {
+				mode_reg = reg;
 				goto tx_complete;
+			}
+		} else {
+			reg = /*st(AI_PC_GA_TASK) & 0x0000ffff;*/0xa5a5;
+			if (reg != cmd_reg) {
+				if (modbus_wr_1reg(ChN, Addr, CMD_REG, reg)) {
+					cmd_reg = reg;
+					goto tx_complete;
+				}
+			}
 		}
 		if (modbus_rd_in_reg(ChN, Addr, FIRST_IN_REG, (sizeof(agm_rx_t) - 4) / 2)) {
+			cmd_reg = 0; // send new task
 tx_complete:
 			tx_time = timers_get_finish_time(AGM_DATA_TX_TIME);
 			connect_time = timers_get_finish_time(AGM_CONNECT_TIME);

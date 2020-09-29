@@ -94,20 +94,22 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	id.R = 0; // Should always be set to 0 when transmitting messages
 	id.PGN = TSC1_PGN; // Torque/Speed Control 1
 	id.SA = Transmission1;
-	png.ControlMode = SpeedControl;
-	png.RequestedSpeed = spd;
-	png.RequestedTorque = trq;
-	png.ModePriority = HighestPriority;
-	if (trq <= 0) {
-		cc = DisDrivelineNonLockup;
-	} else if (trq < 25) {
-		cc = DisDrivelineNonLockup1;
-	} else if (trq < 70) {
-		cc = EnDrivelineInLockup;
-	} else {
-		cc = EnDrivelineInLockup1;
-	}
-	png.ControlConditions = cc; // ToDo: зависит от нагрузки
+	if (spd) {
+		png.ControlMode = SpeedControl;
+		png.RequestedSpeed = spd;
+		png.RequestedTorque = trq;
+		png.ModePriority = HighestPriority;
+		if (trq <= 0) {
+			cc = DisDrivelineNonLockup;
+		} else if (trq < 25) {
+			cc = DisDrivelineNonLockup1;
+		} else if (trq < 70) {
+			cc = EnDrivelineInLockup;
+		} else {
+			cc = EnDrivelineInLockup1;
+		}
+		png.ControlConditions = cc; // ToDo: зависит от нагрузки
+	} // else png.ControlMode = OverrideDis;
 	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
 }
 

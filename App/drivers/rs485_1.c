@@ -1,11 +1,5 @@
-/*
- * rs485_1.c
- *
- *  Created on: 18 дек. 2015 г.
- *      Author: Перчиц А.Н.
- */
-#include "rs485_1.h"
 #include <string.h>
+#include "rs485_1.h"
 
 extern UART_HandleTypeDef RS485_1_UART;
 #ifndef RS485_1_MODE_IRQ
@@ -15,15 +9,19 @@ extern DMA_HandleTypeDef RS485_1_DMA_TX;
 
 static uint8_t rs485_1_buf[RS485_1_BUF_SIZE_RX]; //буфер для приёма даных
 static uint8_t rs485_1_buf_tx[RS485_1_BUF_SIZE_TX]; //буфер для передачи даных
-static uint8_t rs485_1_buf_overflow;		  //счётчик переполнений буфера
+static uint8_t rs485_1_buf_overflow; //счётчик переполнений буфера
 static uint32_t rs485_1_buf_read_pointer; //указатель в буфере на данные которые ещё не обработаны
 
-void rs485_1_reinit (uint32_t speed) {
+bool rs485_1_reinit (uint32_t speed) {
+	bool delay = false;
+	if (RS485_1_UART.Init.BaudRate > speed) delay = true;
 	RS485_1_UART.Init.BaudRate = speed;
-	if (speed == 9600)  RS485_1_UART.Init.StopBits = UART_STOPBITS_2;
+	if (speed == 9600) RS485_1_UART.Init.StopBits = UART_STOPBITS_2;
 	else RS485_1_UART.Init.StopBits = UART_STOPBITS_1;
 	HAL_UART_Init(&RS485_1_UART);
+	return delay;
 }
+
 /**
   * @brief  Инициализация интерфейса RS482 канал 2
   *

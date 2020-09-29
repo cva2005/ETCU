@@ -28,7 +28,7 @@ void mu6u_init (uint8_t ch, uint8_t addr) {
 
 void mu6u_step (void) {
 	if (timers_get_time_left(mu6u_tx_time) == 0) {
-		if (modbus_get_busy(ChN, mu6u_addr, Low_pr)) return; // интерфейс занят
+		if (modbus_get_busy(ChN, mu6u_addr, Hi_pr)) return; // интерфейс занят
 		if (modbus_wr_mreg(ChN, mu6u_addr, DAC0_OUT, sizeof(tx) / 2, tx.byte)) {
 			mu6u_tx_time = timers_get_finish_time(MU6U_DATA_TX_TIME);
 			mu6u_connect_time = timers_get_finish_time(MU6U_CONNECT_TIME);

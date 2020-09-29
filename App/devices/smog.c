@@ -5,7 +5,7 @@
 
 static uint8_t ChN, Addr, err_send;
 static uint16_t stat, err_reg;
-static stime_t connect_time, tx_time;
+static stime_t connect_time, tx_time, del_time;
 smog_rx_t rx;
 int32_t Res[SMOG_CH]; //NO_Res, K_Res, NH_Res;
 
@@ -63,11 +63,14 @@ void smog_step (void) {
 	}
 	if (timers_get_time_left(tx_time) == 0) {
 		if (modbus_get_busy(ChN, Addr, Hi_pr)) return; // интерфейс занят
-		rs485_1_reinit(4800);
-		if (modbus_rd_hold_reg(ChN, Addr, N0_43_REG, REG_NUM)) {
-			tx_time = timers_get_finish_time(SMOG_DATA_TX_TIME);
-			connect_time = timers_get_finish_time(SMOG_CONNECT_TIME);
-			if (err_send < 0xFF) err_send++;
+		if (rs485_1_reinit(4800)) {
+			del_time = timers_get_finish_time(REINIT_DELAY);
+		} else if (timers_get_time_left(del_time) == 0) {
+			if (modbus_rd_hold_reg(ChN, Addr, N0_43_REG, REG_NUM)) {
+				tx_time = timers_get_finish_time(SMOG_DATA_TX_TIME);
+				connect_time = timers_get_finish_time(SMOG_CONNECT_TIME);
+				if (err_send < 0xFF) err_send++;
+			}
 		}
 	}
 }

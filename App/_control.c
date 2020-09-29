@@ -92,8 +92,7 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #endif
 float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
-static stime_t StopControlTime;
-
+static unsigned StopCount = 0;
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -620,7 +619,6 @@ void work_step (void) {
 		work_stop();
 		return;
 	}
-	StopControlTime = timers_get_finish_time(0);
 	if (state.opr == OPR_START_TEST) {
 		if (timers_get_time_left(time.all) == 0)
 			state.step = ST_STOP_TIME;
@@ -933,9 +931,14 @@ void work_stop (void) {
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
 #ifdef ECU_TSC1_CONTROL
-	if (timers_get_time_left(StopControlTime) == 0) {
-		StopControlTime = timers_get_finish_time(SPEED_LOOP_TIME);
+	if (ControlState()) {
 		EcuTSC1Control (0, 0);
+		StopCount = TSC1_STOP_RETRY;
+	} else {
+		if (StopCount) {
+			StopCount--;
+			EcuTSC1Control (0, 0);
+		}
 	}
 #elif SPSH_20_CONTROL
 	spsh20_set_pos(0);

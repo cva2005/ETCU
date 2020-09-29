@@ -5,13 +5,27 @@
 #include "_control.h"
 
 
-#define AGM_CONNECT_TIME	2000	// Время ответа при прев. связь считается потерянной
-#define AGM_DATA_TX_TIME	1000	// Таймаут между отправляемыми пакетами
-#define AGM_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
-#define AGM_CH				21	// каналов измерения
+#define AGM_CONNECT_TIME	2000 // Время ответа при прев. связь считается потерянной
+#define AGM_DATA_TX_TIME	1500 // Таймаут между отправляемыми пакетами
+#define AGM_MAX_ERR_SEND	3	 // Допустимое количество запросов без ответа
+#define AGM_CH				21	 // каналов измерения
 #define FIRST_IN_REG		0x0000
-#define TASK_REG			0x0000
-#define TASK_LEN			4
+#define MODE_REG			0x0000
+#define CMD_REG				0x0001
+/*
+MODE_REG:
+15…11 	резерв;
+10 - 	приведение NO > NO2;
+09 - 	приведение mg к O2ref,
+08 – 	пересчет - mg/nm3
+07…04 	резерв
+03…00 – тип топлива
+ */
+#define NO_NO2			(1 << 10)
+#define MG_O2REF		(1 << 9)
+#define MG_NM3			(1 << 8)
+#define FUEL_TYPE		(7 << 0) // 7 Дизельное топливо
+#define MODE_DATA		(FUEL_TYPE | MG_NM3 | MG_O2REF | NO_NO2)
 
 #pragma pack(1)
 typedef	struct {

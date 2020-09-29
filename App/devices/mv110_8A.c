@@ -52,7 +52,7 @@ void mv8a_step (void) {
 	}
 	if (timers_get_time_left(mv8a_tx_time) == 0) {
 		uint8_t addr = mv8a_addr + (inp / CH_NUM);
-		if (modbus_get_busy(ChN, addr, Low_pr)) return; // интерфейс занят
+		if (modbus_get_busy(ChN, addr, Hi_pr)) return; // интерфейс занят
 		uint8_t ch = inp % CH_NUM;
 		uint8_t reg = STATUS_REG + (ch * CH_OFFSET);
 		if (modbus_rd_hold_reg(ChN, addr, reg, CH_REG_NUM)) {

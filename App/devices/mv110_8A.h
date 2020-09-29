@@ -12,8 +12,8 @@ typedef	struct {
 } mv8a_rx_t;
 #pragma pack()
 
-#define MV8A_CONNECT_TIME	300	// Время ответа при прев. связь считается потерянной
-#define MV8A_DATA_TX_TIME	100	// Таймаут между отправляемыми пакетами
+#define MV8A_CONNECT_TIME	1000 // Время ответа при прев. связь считается потерянной
+#define MV8A_DATA_TX_TIME	200	// Таймаут между отправляемыми пакетами
 #define MV8A_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
 #define MV8A_NUM 			2 	// количество модулей MV110-8A
 #define CH_NUM				8 	// количество каналов в MV110-8A

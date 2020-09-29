@@ -13,6 +13,7 @@
 
 #ifndef APP_DRIVERS_RS485_1_H_
 #define APP_DRIVERS_RS485_1_H_
+#include <stdbool.h>
 #include "stm32f4xx_hal.h"
 //#include "main.h"
 #include "mxconstants.h"
@@ -67,7 +68,7 @@
 #define RS485_1_RE_PPORT RS485_RE1_GPIO_Port //порт на котором висит ножка управления потоком
 #endif
 
-void rs485_1_reinit (uint32_t speed);
+bool rs485_1_reinit (uint32_t speed);
 void rs485_1_init (uint32_t speed);		//Инициализация интерфейса RS482 канал 1
 void rs485_1_clear_buf(void);			//Очищает буфер приёма;
 void* rs485_1_get_buf_pointer(void);	//Возвращает адрес буфера в памяти

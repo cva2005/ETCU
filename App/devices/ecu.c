@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdbool.h>
 #include "timers.h"
 #include "types.h"
 #include "mu110_6U.h"
@@ -6,6 +7,7 @@
 
 int32_t PedalPos = 0;
 static int32_t Data[ECU_CH];
+static bool TSC1state = false;
 
 /*
 spn1483 - Source Address of Controlling Device for Engine Control - The source address of the SAE J1939
@@ -57,10 +59,15 @@ normal accelerator pedal has no effect.
  */
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
+	if (sp_w) TSC1state = true;
+	else TSC1state = false;
 	int8_t tq_b = (int8_t)(trq * TORQUE_LIM);
 	return TorqueSpeedControl(tq_b, sp_w);
 }
 
+bool ControlState (void) {
+	return TSC1state;
+}
 void EcuPedControl (float32_t out) {
 	uint16_t data = (uint16_t)(out * DAC_FACT);
 	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX; // 0...5Â

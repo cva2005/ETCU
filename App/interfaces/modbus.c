@@ -202,23 +202,20 @@ uint8_t modbus_user_function(uint8_t ch, uint8_t adr, uint8_t func, uint8_t ln, 
   * @retval Состояние интерфейса: 1 - ModBus занят, 0 - ModBus свободен
   */
 uint8_t modbus_get_busy(uint8_t ch, uint8_t adr, pr_t pr) {
-	uint8_t cnt;
-	if (adr > 0) { //если проверка доступности линии с учётом приоритетов
+	uint8_t busy = modbus_busy[ch];
+	if (pr == Hi_pr) {
 		adr--;
-		if (modbus_busy[ch] == 0) { //шина доступна
-			cnt = modbus_rq_point[ch]; // очередь устйроств с большим приоритетом
-			while ((cnt != adr) && (modbus_rq_tx[ch][cnt] == 0)) {
-				cnt++;
-				if (cnt >= MODBUS_MAX_DEV) cnt = 0;
-			}
-			if (cnt == adr) { //если нет устройств с большим приоритетом
-				return (0); //вернуть что канал свободен
-			} else { // есть устйроства с большим приоритетом
-				if (pr == Hi_pr) modbus_rq_tx[ch][adr] = 1; //установить флаг запроса на отправку
-				return (1); // шина занята (ожидает более приоритетного устйроства)
-			}
-		} else return (1);
-	} else return (modbus_busy[ch]);
+		uint8_t cnt = modbus_rq_point[ch]; // очередь HiPr устройств
+		while ((cnt != adr) && (modbus_rq_tx[ch][cnt] == 0)) {
+			cnt++;
+			if (cnt >= MODBUS_MAX_DEV) cnt = 0;
+		}
+		if (cnt != adr) { // есть ус-ва с Hi приоритетом
+			modbus_rq_tx[ch][adr] = 1; // добавить запрос
+			busy = 1; // уступить очередь
+		}
+	}
+	return busy;
 }
 
 /**
