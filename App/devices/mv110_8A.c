@@ -68,7 +68,6 @@ int32_t mv8a_read_res (uint8_t ch) {
 }
 
 uint8_t mv8a_err_link (void) {
-	if (timers_get_time_left(mv8a_connect_time) == 0) return 1;
 	if (mv8a_err_send > MV8A_MAX_ERR_SEND) return 1;
 	return 0;
 }

@@ -11,7 +11,7 @@ typedef union {
 } mu6u_tx_t;
 #pragma pack()
 
-#define MU6U_CONNECT_TIME	300 // Время ответа от MU6U, при прев. связь считается потерянной
+#define MU6U_CONNECT_TIME	1000 // Время ответа от MU6U, при прев. связь считается потерянной
 #define MU6U_DATA_TX_TIME	SPEED_LOOP_TIME //Таймаут между отправляемыми пакетами к MU6U
 #define MU6U_MAX_ERR_SEND	3	// Допустимое количество запросов без ответа
 

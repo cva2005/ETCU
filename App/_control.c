@@ -479,20 +479,15 @@ void read_devices (void) {
 //----данные сервопривода
 #ifdef ECU_TSC1_CONTROL
 #elif ECU_PED_CONTROL
-#ifdef MU6U_DEBUG
-	sg_st.ta.i.a[0] = EcuPedalPos();
-#else
 	if (EcuPedError() == 0) {
-		//sg_st.ta.i.a[1] = spsh20_get_status();
-		//if (sg_st.ta.i.a[1] != SERVO_OK) goto servo_err;
 		sg_st.ta.i.a[0] = EcuPedalPos();
 	} else {
+		sg_st.ta.i.a[0] = 0;
 		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
 		error.bit.no_ta = 1;
 		state.step = ST_STOP_ERR;
 		cmd.opr = ST_STOP_ERR;
 	}
-#endif
 #elif SPSH_20_CONTROL
 	if (spsh20_err_link() == 0) {
 		sg_st.ta.i.a[1] = spsh20_get_status();

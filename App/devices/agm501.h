@@ -5,7 +5,7 @@
 #include "_control.h"
 
 
-#define AGM_CONNECT_TIME	2000 // Время ответа при прев. связь считается потерянной
+#define AGM_CONNECT_TIME	4000 // Время ответа при прев. связь считается потерянной
 #define AGM_DATA_TX_TIME	1500 // Таймаут между отправляемыми пакетами
 #define AGM_MAX_ERR_SEND	3	 // Допустимое количество запросов без ответа
 #define AGM_CH				21	 // каналов измерения
