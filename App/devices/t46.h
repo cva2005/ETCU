@@ -3,9 +3,8 @@
 #include "arm_math.h"
 #include "modbus.h"
 
-#define T46_DATA_CONVERT_TIME	100	// Врямя для измерения параметров
-#define T46_DATA_REINIT_TIME	100 // Время между чтением параметров и повторным перезапуском на преобравозание
-#define T46_MAX_ERR_SEND		2	// Максимально допустимое количество запросов без ответа
+#define T46_TX_TIME		300
+#define T46_MAX_ERR_SEND		3	// Максимально допустимое количество запросов без ответа
 #define RESULT_ALL		0 // 5 регистров: момент, частота, температура
 //#define RES_REG_NUM		5 // 5 регистров: момент, частота, температура
 #define RES_REG_NUM		4 // 4 регистра: момент, частота

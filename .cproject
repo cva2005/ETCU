@@ -75,7 +75,6 @@
 									<listOptionValue builtIn="false" value="NEW_PC_AO"/>
 									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="NO_3DPAS_DRIVER"/>
-									<listOptionValue builtIn="false" value="EXHAUST"/>
 									<listOptionValue builtIn="false" value="ECU_PED_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
@@ -197,7 +196,6 @@
 									<listOptionValue builtIn="false" value="NEW_PC_AO"/>
 									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="NO_3DPAS_DRIVER"/>
-									<listOptionValue builtIn="false" value="EXHAUST"/>
 									<listOptionValue builtIn="false" value="ECU_PED_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.225212887" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>

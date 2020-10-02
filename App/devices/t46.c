@@ -74,7 +74,6 @@ void t46_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 #endif
 			}
 		} else if (function == START_MEASURING) { // запуск измерений
-			t46_tx_time = timers_get_finish_time(T46_DATA_CONVERT_TIME);
 			t46_tx_type = READ_COMPLEX;
 		}
 	}
@@ -89,12 +88,13 @@ void t46_step (void) {
 		if (t46_err_send > T46_MAX_ERR_SEND) t46_tx_type = START_MEASURING;
 		if (modbus_get_busy(ChN, t46_adr, Hi_pr)) return; // интерфейс занят
 		if (t46_tx_type == START_MEASURING) {
-			if (modbus_wr_1reg(ChN, t46_adr, CONFIG_ADDR, CONFIG_WORD)) goto tx_compl;
+			if (modbus_wr_1reg(ChN, t46_adr, CONFIG_ADDR, CONFIG_WORD))
+				goto tx_compl;
 		} else if (t46_tx_type == READ_COMPLEX) {
 			if (modbus_rd_in_reg(ChN, t46_adr, RESULT_ALL, RES_REG_NUM)) {
 tx_compl:
-				t46_tx_time = timers_get_finish_time(T46_DATA_REINIT_TIME + MODBUS_MAX_WAIT_TIME);
-				if (t46_err_send < 0xFF) t46_err_send++;
+				t46_tx_time = timers_get_finish_time(T46_TX_TIME);
+				if (t46_err_send <= T46_MAX_ERR_SEND) t46_err_send++;
 			}
 		}
 	}
@@ -104,7 +104,7 @@ tx_compl:
  * Возвращает состояние связи
  */
 uint8_t t46_err_link (void) {
-	if (t46_err_send > T46_MAX_ERR_SEND) return 1;
+	if (t46_err_send >= T46_MAX_ERR_SEND) return 1;
 	else return 0;
 }
 

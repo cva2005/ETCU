@@ -2,7 +2,6 @@
 #include "J1939.h"
 #include "timers.h"
 #include "ecu.h"
-#include "_control.h"
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
 static stime_t err_time;
@@ -38,8 +37,6 @@ void J1939_step (void) {
 	} while (read_st);
 	if (timers_get_time_left(err_time) == 0) {
 		time_out = true;
-		for (uint32_t i = 0; i < AO_PC_ECU_05 - AO_PC_ECU_01; i++)
-			set(AO_PC_ECU_01 + i, ERROR_CODE);
 	}
 }
 

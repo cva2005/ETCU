@@ -3,7 +3,7 @@
 #include "arm_math.h"
 #include "J1939.h"
 
-#define ECU_CH				10
+#define ECU_CH				7
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
 #define DAC_FACT			0.060f
 #define SPEED_RESOL			0.125f // rpm

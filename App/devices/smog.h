@@ -5,11 +5,12 @@
 #include "_control.h"
 
 
-#define SMOG_CONNECT_TIME	4000 // Время ответа при прев. связь считается потерянной
+#define SMOG_CONNECT_TIME	1000 // Время ответа при прев. связь считается потерянной
 #define SMOG_DATA_TX_TIME	1500 // Таймаут между отправляемыми пакетами
 #define REINIT_DELAY		500
 #define SMOG_MAX_ERR_SEND	3 // Допустимое количество запросов без ответа
-#define SMOG_CH				4 // каналов измерения
+#define CH_N				4 // каналов измерения
+#define SMG_CH				6 // результаты измерения + status + error
 #define N_BYTE				3 // байт в поле данных
 
 #pragma pack(1)
@@ -19,7 +20,7 @@ typedef	struct {
 	    uint8_t Unused:	4;
 	    uint8_t Sign:	1; // Бит ЗНАК
 	    uint8_t	Data[N_BYTE]; // измеренное значение (цифры от 0 до 9 десятичные)
-	} ch[SMOG_CH];
+	} ch[CH_N];
     uint16_t Empty[2];
     uint8_t Error;
     uint8_t Status;
@@ -27,10 +28,7 @@ typedef	struct {
 #pragma pack()
 
 void smog_init (uint8_t ch, uint8_t addr); // Инициализация устйроства
-int32_t smog_get_N0_43 (void); // результат измерения "Дымность, N0,43"
-int32_t smog_get_NH (void);	// результат измерения "Дымность, NН"
-int32_t smog_get_K (void);	// результат измерения "Коэффициент поглощения"
-int32_t smog_get_T (void); // результат измерения "Температура"
+int32_t smog_read_res (uint8_t ch);
 uint8_t smog_err_link (void); // Возвращает состояние связи
 void smog_step (void);
 

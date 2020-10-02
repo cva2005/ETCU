@@ -24,7 +24,8 @@ typedef enum {
 #define MB_BL					256 // размер буфера приема
 #define MODBUS_MAX_DEV			6 // устройств ModBus 1
 #define MODBUS2_MAX_DEV 		6 // устройств ModBus 2
-#define MODBUS_MAX_WAIT_TIME 	500 // время ожидания ответа от slave устройства
+#define MODBUS_MAX_WAIT_TIME 	1000 // время ожидания ответа от slave устройства
+#define MODBUS2_MAX_WAIT_TIME 	200 // время ожидания ответа от slave устройства
 #define MODBUS_BYTE_RX_PAUSE 	5 // допустимая пауза между принятыми байтами
 #define MB_TX_BUFF				20
 

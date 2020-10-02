@@ -53,7 +53,7 @@ void main_app (void) {
 	HAL_IWDG_Start(&hiwdg);
 #endif
 	adc_init();
-#ifdef EXHAUST
+#if ECU_PED_CONTROL | ECU_TSC1_CONTROL
 	rs485_1_init(4800);
 #else
 	rs485_1_init(38400);
@@ -62,7 +62,7 @@ void main_app (void) {
 	wifi_hf_init(115200);//wifi_hf_init(460800);
 #ifdef SPSH_20_CONTROL
 	can_1_init(CAN_1_SPEED_500K);
-#elif ECU_TSC1_CONTROL || ECU_PED_CONTROL
+#elif ECU_PED_CONTROL | ECU_TSC1_CONTROL
 	can_1_init(CAN_1_SPEED_250K);
 #endif
 	can_2_init(CAN_2_SPEED_250K);
@@ -88,11 +88,9 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#ifdef	EXHAUST
-		agm_step();
-		smog_step();
-#endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
+		smog_step();
+		agm_step();
 		J1939_step();
 		mv8a_step();
 #ifdef ECU_PED_CONTROL

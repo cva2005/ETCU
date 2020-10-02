@@ -59,15 +59,15 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_NO_RESET			0
 #ifdef ECU_PED_CONTROL
 #ifdef MODEL_OBJ
-	#define SPEED_KP			2.00f
-	#define SPEED_KI			0.1f
+	#define SPEED_KP			0.20f
+	#define SPEED_KI			0.023f
 	#define SPEED_KD			0.0002f
 	#define TORQUE_KP			0.15f
 	#define TORQUE_KI			0.08f
 	#define TORQUE_KD			0.001f
 #else
-	#define SPEED_KP			1.00f
-	#define SPEED_KI			0.05f
+	#define SPEED_KP			0.20f
+	#define SPEED_KI			0.023f
 	#define SPEED_KD			0.0002f
 	#define TORQUE_KP			0.10f
 	#define TORQUE_KI			0.01f
@@ -92,7 +92,9 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #endif
 float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
+#ifdef ECU_TSC1_CONTROL
 static unsigned StopCount = 0;
+#endif
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -300,10 +302,6 @@ void control_init(void) {
 	ds18b20_init(7);
 	ds18b20_init(8);
 #endif
-#ifdef EXHAUST
-	smog_init(CH1, ADR_SMOG);
-	agm_init(CH1, ADR_AGM);
-#endif
 #ifndef NO_3DPAS_DRIVER
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
 #endif
@@ -311,6 +309,8 @@ void control_init(void) {
 	mu6u_init(CH2, ADR_MU6U);
 #endif
 #if ECU_PED_CONTROL | ECU_TSC1_CONTROL
+	smog_init(CH1, ADR_SMOG);
+	agm_init(CH1, ADR_AGM);
 	mv8a_init(CH2, ADR_MV8A);
 #endif
 #ifndef NO_TORQ_DRIVER
@@ -415,24 +415,36 @@ void read_devices (void) {
 		set(AO_PC_1MV8A1 + i, ERROR_CODE);
 	else for (i = 0; i < MV8A_INP; i++)
 		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
-	if (agm_err_link()) for (i = 0; i < AGM_CH; i++)
+	if (agm_err_link()) for (i = 0; i < AGM_CH - 4; i++)
 		set((AO_PC_1MV8A1 + MV8A_INP) + i, ERROR_CODE);
-	else for (i = 0; i < AGM_CH; i++)
-		set((AO_PC_1MV8A1 + MV8A_INP) + i, agm_read_res(i));
- 	if (smog_err_link()) for (i = 0; i < SMOG_CH; i++)
+	else for (i = 0; i < AGM_CH - 4; i++)
+		set((AO_PC_1MV8A1 + MV8A_INP) + i, agm_read_res(i + 5));
+ 	if (smog_err_link()) for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
  		set(AO_PC_ECU_12 + i, ERROR_CODE);
-  	else {
- 		set(AO_PC_ECU_12, smog_get_N0_43());
- 		set(AO_PC_ECU_13, smog_get_NH());
- 		set(AO_PC_ECU_14, smog_get_K());
- 		set(AO_PC_ECU_15, smog_get_T());
- 	}
+  	else for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
+ 		set(AO_PC_ECU_12 + i, smog_read_res(i));
  	if (J1939_error()) for (i = 0; i < 4; i++)
 		set(AO_PC_ECU_08 + i, ERROR_CODE);
- 	else for (i = 0; i < 4; i++)
+ 	else for (i = 0; i < 4; i++) // ToDo:
  		set(AO_PC_ECU_08 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_ECU_16, ERROR_CODE);
  	else set(AO_PC_ECU_16, bcu_get_puls());
+#if 0
+	if (agm_err_link()) for (i = 0; i < AGM_CH; i++)
+		set(AO_PC_AGM_D01 + i, ERROR_CODE);
+	else for (i = 0; i < AGM_CH; i++)
+		set(AO_PC_AGM_D01 + i, agm_read_res(i));
+ 	if (smog_err_link()) for (i = 0; i < SMG_CH; i++)
+ 		set(AO_PC_ECU_12 + i, ERROR_CODE);
+  	else for (i = 0; i < SMG_CH; i++)
+ 		set(AO_PC_ECU_12 + i, smog_read_res(i));
+ 	if (J1939_error()) for (i = 0; i < ECU_CH; i++)
+		set(AO_PC_ECU_01 + i, ERROR_CODE);
+ 	else for (i = 0; i < ECU_CH; i++)
+ 		set(AO_PC_ECU_01 + i, ecu_get_data(i));
+ 	if (bcu_err_link()) set(AO_PC_Q_BCU, ERROR_CODE);
+ 	else set(AO_PC_Q_BCU, bcu_get_puls());
+#endif // #if 0
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;
@@ -812,24 +824,6 @@ void set_indication (void) {
 		cmd.opr = ST_STOP_ERR;
 	}
 	set(AO_PC_T_OIL_OUT, val); // Уровень масла XP7
-	//датчики локального нагрева
-#ifdef SERVO_DEBUG
-	extern uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrFilterOut, CurrTmpVal;
-	set(AO_PC_T_EXT1, ForwCurrMax * 10);
-	set(AO_PC_T_EXT2, RevCurrMax * 10);
-	set(AO_PC_T_EXT3, ErrCurrMax * 10);
-	set(AO_PC_T_EXT4, CurrFilterOut * 10);
-	set(AO_PC_T_EXT5, CurrTmpVal * 10);
-#else
-	set(AO_PC_T_EXT1, st(AI_T_EXT1));
-	set(AO_PC_T_EXT2, st(AI_T_EXT2));
-	set(AO_PC_T_EXT3, st(AI_T_EXT3));
-	set(AO_PC_T_EXT4, st(AI_T_EXT4));
-	set(AO_PC_T_EXT5, st(AI_T_EXT5));
-#endif
-	set(AO_PC_T_EXT6, st(AI_T_EXT6));
-	set(AO_PC_T_EXT7, st(AI_T_EXT7));
-	set(AO_PC_T_EXT8, st(AI_T_EXT8));
 	//аналоговые датчики
 	set(AO_PC_P_EXHAUST, st(AI_P_EXHAUST)); //Аналоговый: Давление выхлопных газов
 	set(AO_PC_P_OIL, st(AI_P_OIL)); //Аналоговый: Давление масла

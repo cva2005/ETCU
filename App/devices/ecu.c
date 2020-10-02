@@ -93,7 +93,6 @@ void SaveEngineLP (PGN_65263_t* data) {
 	Data[1] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
 	f = (float32_t)data->FuelDelivery_P * OIL_P_WEIGHT;
 	Data[2] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
-
 }
 
 void SaveAirFlow (int16_t flow) {
@@ -104,15 +103,13 @@ void SaveAirFlow (int16_t flow) {
 void SaveFuelRate (PGN_65266_t* data) {
 	float32_t f = (float32_t)data->FuelRate * RATE_WEIGHT;
 	Data[4] = (int32_t)(f * 1000.0); // 0 to 3,212.75 L/h (0.05 L/h per bit)
-	f = (float32_t)data->InstantaneousEconomy / F_ECON_WEIGHT;
-	Data[5] = (int32_t)(f * 1000.0); // 0 to 125.5 km/L (1/512 km/L per bit)
 }
 
 void SaveInletExhaust (PGN_65270_t* data) {
 	float32_t f = (float32_t)data->AirInlet_P * AIR_P_WEIGHT;
-	Data[6] = (int32_t)(f * 1000.0); // 0 to 500 kPa (2 kPa/bit)
+	Data[5] = (int32_t)(f * 1000.0); // 0 to 500 kPa (2 kPa/bit)
 	f = (float32_t)data->Manifold_1_T * AIR_T_WEIGHT;
-	Data[7] = (int32_t)(f * 1000.0); // -40 to 210 deg C (1 deg C/bit)
+	Data[6] = (int32_t)(f * 1000.0); // -40 to 210 deg C (1 deg C/bit)
 
 }
 
