@@ -40,3 +40,11 @@ uint32_t timers_get_time_left(stime_t time)
  	if (del > time.del) return 0;
  	else return (time.del - del);
 }
+
+uint32_t timers_get_interval(uint32_t run) {
+	uint32_t del, t = HAL_GetTick();
+ 	if (t < run) // overflow system timer
+ 		del = (0xffffffff - run) + t;
+ 	else del = t - run;
+ 	return del;
+}

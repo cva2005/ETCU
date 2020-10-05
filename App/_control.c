@@ -411,14 +411,14 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
-	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
+	if (mv8a_err_link()) for (i = 0; i < /*MV8A_INP*/9; i++)
 		set(AO_PC_1MV8A1 + i, ERROR_CODE);
-	else for (i = 0; i < MV8A_INP; i++)
+	else for (i = 0; i < /*MV8A_INP*/9; i++) // ToDo:
 		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
 	if (agm_err_link()) for (i = 0; i < AGM_CH - 4; i++)
-		set((AO_PC_1MV8A1 + MV8A_INP) + i, ERROR_CODE);
+		set((AO_PC_1MV8A1 + /*MV8A_INP*/9) + i, ERROR_CODE);
 	else for (i = 0; i < AGM_CH - 4; i++)
-		set((AO_PC_1MV8A1 + MV8A_INP) + i, agm_read_res(i + 5));
+		set((AO_PC_1MV8A1 + /*MV8A_INP*/9) + i, agm_read_res(i + 5));
  	if (smog_err_link()) for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
  		set(AO_PC_ECU_12 + i, ERROR_CODE);
   	else for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
@@ -428,8 +428,12 @@ void read_devices (void) {
  	else for (i = 0; i < 4; i++) // ToDo:
  		set(AO_PC_ECU_08 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_ECU_16, ERROR_CODE);
- 	else set(AO_PC_ECU_16, bcu_get_puls());
+ 	else set(AO_PC_ECU_16, bcu_get_Q());
 #if 0
+	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
+		set(AO_PC_1MV8A1 + i, ERROR_CODE);
+	else for (i = 0; i < MV8A_INP; i++)
+		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
 	if (agm_err_link()) for (i = 0; i < AGM_CH; i++)
 		set(AO_PC_AGM_D01 + i, ERROR_CODE);
 	else for (i = 0; i < AGM_CH; i++)

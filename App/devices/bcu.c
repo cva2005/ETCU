@@ -4,10 +4,11 @@
  *  Created on: 10 янв. 2016 г.
  *      Author: Перчиц А.Н.
  */
+#include <string.h>
+#include <arm_math.h>
 #include "bcu.h"
 #include "canopen.h"
 #include "timers.h"
-#include <string.h>
 #include "t_auto.h"
 
 //--отправляемые данные--
@@ -29,7 +30,10 @@ static stime_t bcu_tx_time;		//таймер отправки пакетов
 
 static uint32_t bcu_k_pressure=BCU_MAX_PRESSURE/(BCU_I_MAX_PRESSURE-BCU_I_MIN_PRESSURE); //K - коэффициент пересчёта датчика давления
 static uint32_t bcu_b_pressure=BCU_I_MIN_PRESSURE; 										//B - смещение дачтика давления
-static int32_t puls; // значение расхода
+static uint32_t plsVnew = 0, plsVold = 0; // накопленное значение объема, л
+static uint32_t Trun = 0; // начало отсчета расхода
+static float32_t inQ = 0; // расход, л/мин
+static float32_t outQ = 0; // расход, л/мин
 
 /**
   * @brief Инициализация устйроства управления гидротормозом (BCU)
@@ -84,7 +88,13 @@ void bcu_update_data (char *data, uint8_t len, uint32_t adr) {
 				bcu_t_st.byte[0]=data[0];
 				bcu_t_st.byte[1]=data[1];
 			}
-			if (len>=6) puls = *((uint32_t *)&data[2]);
+			if (len>=6) {
+				//plsVnew = *((uint32_t *)&data[2]);
+				plsVnew++;
+				if (plsVold == 0) {
+					plsVold = plsVnew;
+				}
+			}
 			if (len==8) bcu_in_st.byte=data[7];
 		}
 		/*if (object == PDO2_TX_SLAVE) {
@@ -118,27 +128,30 @@ void bcu_update_data (char *data, uint8_t len, uint32_t adr) {
 /**
   * @brief  Шаг обработки данных устйроства управления гидротормозом (BCU)
   */
-void bcu_step(void)
-{
+void bcu_step (void) {
 	CanOpen_step();
-
-	if (timers_get_time_left(bcu_tx_time)==0)			//если пришло время отправки пакета
-		{
-		if (timers_get_time_left(bcu_connect_time)==0)	//если истекло время ожидания данных от ППУ
-			{
-			if (CanOpen_tx_nmt(NODE_START, bcu_node_id))	//отправить команду старта
-				{
-				bcu_tx_time=timers_get_finish_time(BCU_DATA_TX_INIT);	//в случае успешной отправки, установить новое время следующей отправки
-				}
+	if (timers_get_time_left(bcu_tx_time) == 0) {
+		if (timers_get_time_left(bcu_connect_time) == 0) {
+			if (CanOpen_tx_nmt(NODE_START, bcu_node_id)) {
+				bcu_tx_time = timers_get_finish_time(BCU_DATA_TX_INIT);
 			}
-		else
-			{
-			if (CanOpen_tx_pdo(1, bcu_node_id, &bcu_tx_data.byte[0], 8))		  //отправить пакет данных
-				{
-				bcu_tx_time=timers_get_finish_time(BCU_DATA_TX_TIME); //установить время отправки следующего пакета
-				}
+		} else {
+			if (CanOpen_tx_pdo(1, bcu_node_id, &bcu_tx_data.byte[0], 8)) {
+				bcu_tx_time = timers_get_finish_time(BCU_DATA_TX_TIME);
 			}
 		}
+	}
+	if (plsVnew != plsVold) {
+		if (Trun) {
+			float32_t v = plsVnew - plsVold;
+			float32_t  t_min = (float32_t)timers_get_interval(Trun);
+			t_min /= 60.0; // ms -> min
+			inQ = v * 1000.0 / t_min;
+			outQ = (Q_TAU * inQ) + ((1 - Q_TAU) * outQ);
+		}
+		plsVold = plsVnew;
+		Trun = HAL_GetTick();
+	}
 }
 
 /**
@@ -245,9 +258,8 @@ int32_t bcu_get_power (void)
 	return(bcu_power_st.word);
 }
 
-int32_t bcu_get_puls (void)
-{
-	return puls;
+uint32_t bcu_get_Q (void) {
+	return (uint32_t)outQ; // расход л/мин * 1000
 }
 
 /**

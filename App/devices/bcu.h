@@ -25,6 +25,7 @@
 #define BCU_SOUND_MASK		0x08 // RELE 4 звуковая индикация
 #define BCU_I_MAX_PRESSURE 20000	//минимальное значение тока в мкА при максимуме датчика давления DMP330L
 #define BCU_I_MAX_PRESSURE 20000	//минимальное значение тока в мкА при максимуме датчика давления DMP330L
+#define Q_TAU				0.01f
 
 #pragma pack(1)
 typedef union
@@ -59,6 +60,6 @@ int32_t bcu_get_frequency(void);		//Возвращает значение частоты с датчика момент
 int32_t bcu_get_power(void);			//Возвращает значение мощности с датчика момента
 uint8_t bcu_err_link (void);			//Возвращает состояние связи с BCU
 void bcu_update_data (char *data, uint8_t len, uint32_t adr);	//Обработчик пакетов принятых по CanOpen от BCU
-int32_t bcu_get_puls (void);
+uint32_t bcu_get_Q (void); // расход л/мин
 
 #endif /* APP_DEVICES_BCU_H_ */

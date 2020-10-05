@@ -16,5 +16,6 @@ typedef struct {
 
 stime_t timers_get_finish_time(uint32_t delay); //¬ычисл€ет значение системного таймера при значении которого истекает задана€ задержка
 uint32_t timers_get_time_left(stime_t stime); //¬ычисл€ет сколько осталось времени до достижени€ заданного значени€ системного таймера
+uint32_t timers_get_interval(uint32_t run);
 
 #endif /* APP_DRIVERS_TIMERS_H_ */

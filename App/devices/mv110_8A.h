@@ -17,7 +17,7 @@ typedef	struct {
 #define MV8A_MAX_ERR_SEND	3	// ƒопустимое количество запросов без ответа
 #define MV8A_NUM 			2 	// количество модулей MV110-8A
 #define CH_NUM				8 	// количество каналов в MV110-8A
-#define INP_NUM				9 	// количество используемых каналов измерени€
+#define INP_NUM				15 	// количество используемых каналов измерени€
 #define MV8A_INP			INP_NUM
 
 void mv8a_init (uint8_t ch, uint8_t addr);	// »нициализаци€ устйроства

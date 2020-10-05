@@ -5,8 +5,7 @@
 #include "timers.h"
 #include "_signals.h"
 
-static uint8_t ChN, Addr, err_send, Cmd, ChS;
-static uint16_t Status, Error, Mode;
+static uint8_t ChN, Addr, err_send;
 static stime_t tx_time;
 static int16_t cmd_reg, mode_reg;
 static int32_t Res[AGM_CH];
