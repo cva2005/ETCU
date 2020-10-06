@@ -411,6 +411,7 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 #if ECU_TSC1_CONTROL | ECU_PED_CONTROL
+#if 0
 	if (mv8a_err_link()) for (i = 0; i < /*MV8A_INP*/9; i++)
 		set(AO_PC_1MV8A1 + i, ERROR_CODE);
 	else for (i = 0; i < /*MV8A_INP*/9; i++) // ToDo:
@@ -429,7 +430,7 @@ void read_devices (void) {
  		set(AO_PC_ECU_08 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_ECU_16, ERROR_CODE);
  	else set(AO_PC_ECU_16, bcu_get_Q());
-#if 0
+#else
 	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
 		set(AO_PC_1MV8A1 + i, ERROR_CODE);
 	else for (i = 0; i < MV8A_INP; i++)
@@ -439,15 +440,15 @@ void read_devices (void) {
 	else for (i = 0; i < AGM_CH; i++)
 		set(AO_PC_AGM_D01 + i, agm_read_res(i));
  	if (smog_err_link()) for (i = 0; i < SMG_CH; i++)
- 		set(AO_PC_ECU_12 + i, ERROR_CODE);
+ 		set(AO_PC_SMG_D01 + i, ERROR_CODE);
   	else for (i = 0; i < SMG_CH; i++)
- 		set(AO_PC_ECU_12 + i, smog_read_res(i));
+ 		set(AO_PC_SMG_D01 + i, smog_read_res(i));
  	if (J1939_error()) for (i = 0; i < ECU_CH; i++)
 		set(AO_PC_ECU_01 + i, ERROR_CODE);
  	else for (i = 0; i < ECU_CH; i++)
  		set(AO_PC_ECU_01 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_Q_BCU, ERROR_CODE);
- 	else set(AO_PC_Q_BCU, bcu_get_puls());
+ 	else set(AO_PC_Q_BCU, bcu_get_Q()); // расход л/мин);
 #endif // #if 0
 #endif
  	//----данные модуля управления гидротормозом
@@ -461,8 +462,13 @@ void read_devices (void) {
 		if ((t_bcu > 110000) || (t_bcu < 10000)) t_bcu = ERROR_CODE;
 		sg_st.bcu.i.a[1] = t_bcu; // температура вместо давления в гидротормозе
 		//sg_st.bcu.i.a[2] = bcu_get_position();
-		if (sg_st.bcu.i.d & 0x01) error.bit.emergancy_stop = 1;
-		else error.bit.emergancy_stop = 0;
+		if (sg_st.bcu.i.d & 0x01) {
+			error.bit.emergancy_stop = 1;
+			state.step = ST_STOP_ERR;
+			cmd.opr = ST_STOP_ERR;
+		} else {
+			error.bit.emergancy_stop = 0;
+		}
 	} else {
 		sg_st.bcu.i.d = 0;
 		sg_st.bcu.i.a[0] = sg_st.bcu.i.a[1] = sg_st.bcu.i.a[2] = 0;
@@ -851,6 +857,7 @@ void set_indication (void) {
 
 	//ток и напряжение АКБ
 	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
+	val /= 10; // шунт 100А 750мкВ
 	set(AO_PC_CURRENT, val);
 	set(AO_PC_VOLTAGE, st(AI_U_AKB));
 	//сигналы педали газа

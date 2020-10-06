@@ -23,6 +23,7 @@ uint8_t CanOpen_get_nodeid(uint32_t adr);//Выделяет из CAN адреса (COB_ID), адре
 uint16_t CanOpen_get_object(uint32_t adr);//Выделяет из CAN адреса (COB_ID), номер объекта (OBJECT)
 uint16_t CanOpen_get_index(uint8_t *data);//Выделяет индекс из объекта SDO
 uint8_t CanOpen_get_subindex(uint8_t *data);//Выделяет подиндекс из объекта SDO
+extern CanOpen_rx_object_t CanOpen_rx_object[MAX_DEV_CANOPEN];
 
 //-------------------------CAN OPEN OBJECTS-------------------------------------
 #define NMT 0x00

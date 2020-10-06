@@ -27,11 +27,11 @@ static udata8_t bcu_err;			//ошибка BCU
 static uint8_t bcu_node_id=0;		//NOD ID устйроства BCU
 static stime_t bcu_connect_time;	//таймер ожидания ответов
 static stime_t bcu_tx_time;		//таймер отправки пакетов
+static stime_t Qint_time;
 
 static uint32_t bcu_k_pressure=BCU_MAX_PRESSURE/(BCU_I_MAX_PRESSURE-BCU_I_MIN_PRESSURE); //K - коэффициент пересчёта датчика давления
 static uint32_t bcu_b_pressure=BCU_I_MIN_PRESSURE; 										//B - смещение дачтика давления
 static uint32_t plsVnew = 0, plsVold = 0; // накопленное значение объема, л
-static uint32_t Trun = 0; // начало отсчета расхода
 static float32_t inQ = 0; // расход, л/мин
 static float32_t outQ = 0; // расход, л/мин
 
@@ -40,33 +40,27 @@ static float32_t outQ = 0; // расход, л/мин
   *
   * @param  node_id: адрес устйроства на шине CanOpen (NODE_ID)
   */
-void bcu_init(uint8_t node_id)
-{uint8_t cnt=0;
-extern CanOpen_rx_object_t CanOpen_rx_object[MAX_DEV_CANOPEN]; //указатели на функции обработчики пакетов от устройств CanOpen
-
+void bcu_init(uint8_t node_id) {
+	uint8_t cnt=0;
 	memset(&bcu_tx_data.byte[0], 0, sizeof(bcu_tx_data));
-
-	bcu_t_st.word=5000;
-	bcu_p_st.word=0;
-	bcu_position_st.word=0;
-	bcu_in_st.byte=0;
-	bcu_torque_st.word=0;
-	bcu_frequency_st.word=0;
-	bcu_power_st.word=0;
-
+	bcu_t_st.word = 5000;
+	bcu_p_st.word = 0;
+	bcu_position_st.word = 0;
+	bcu_in_st.byte = 0;
+	bcu_torque_st.word = 0;
+	bcu_frequency_st.word = 0;
+	bcu_power_st.word = 0;
 	bcu_err.byte = 0;
-
-	if (node_id<=32)
-		{
-		while ((CanOpen_rx_object[cnt]!=NULL)&&(cnt<MAX_DEV_CANOPEN))	cnt++; //найти свободный указатель
-		if (cnt<MAX_DEV_CANOPEN)
-			{
+	if (node_id <= 32) {
+		while ((CanOpen_rx_object[cnt] != NULL) && (cnt < MAX_DEV_CANOPEN))	cnt++;
+		if (cnt < MAX_DEV_CANOPEN) { //найти свободный указатель
 			CanOpen_rx_object[cnt]=bcu_update_data; //указать обработчик принатых пакетов
-			bcu_node_id=node_id;				  //сохранить адрес
-			bcu_tx_time=timers_get_finish_time(BCU_DATA_TX_INIT); 	   //установить время отправки следующего пакета
-			bcu_connect_time=timers_get_finish_time(BCU_CONNECT_TIME); //Установить ограничение времени когда должен быть принят пакет PDO от slave устйроства
-			}
+			bcu_node_id = node_id;				  //сохранить адрес
+			bcu_tx_time = timers_get_finish_time(BCU_DATA_TX_INIT);
+			bcu_connect_time = timers_get_finish_time(BCU_CONNECT_TIME);
 		}
+	}
+	Qint_time = timers_get_finish_time(Q_INTEGRAL_TIME);
 }
 
 /**
@@ -89,11 +83,8 @@ void bcu_update_data (char *data, uint8_t len, uint32_t adr) {
 				bcu_t_st.byte[1]=data[1];
 			}
 			if (len>=6) {
-				//plsVnew = *((uint32_t *)&data[2]);
-				plsVnew++;
-				if (plsVold == 0) {
-					plsVold = plsVnew;
-				}
+				plsVnew = *((uint32_t *)&data[2]);
+				if (plsVold == 0) plsVold = plsVnew;
 			}
 			if (len==8) bcu_in_st.byte=data[7];
 		}
@@ -141,16 +132,12 @@ void bcu_step (void) {
 			}
 		}
 	}
-	if (plsVnew != plsVold) {
-		if (Trun) {
-			float32_t v = plsVnew - plsVold;
-			float32_t  t_min = (float32_t)timers_get_interval(Trun);
-			t_min /= 60.0; // ms -> min
-			inQ = v * 1000.0 / t_min;
-			outQ = (Q_TAU * inQ) + ((1 - Q_TAU) * outQ);
-		}
+	if (timers_get_time_left(Qint_time) == 0) {
+		Qint_time = timers_get_finish_time(Q_INTEGRAL_TIME);
+		if (plsVnew > plsVold) inQ = (plsVnew - plsVold) * Q_T_MUL;
+		else inQ = 0;
+		outQ = (Q_TAU * inQ) + ((1.0 - Q_TAU) * outQ);
 		plsVold = plsVnew;
-		Trun = HAL_GetTick();
 	}
 }
 
@@ -260,6 +247,7 @@ int32_t bcu_get_power (void)
 
 uint32_t bcu_get_Q (void) {
 	return (uint32_t)outQ; // расход л/мин * 1000
+	//return plsVnew * 1000;
 }
 
 /**

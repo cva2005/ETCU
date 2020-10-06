@@ -25,28 +25,28 @@
 #define BCU_SOUND_MASK		0x08 // RELE 4 звуковая индикация
 #define BCU_I_MAX_PRESSURE 20000	//минимальное значение тока в мкА при максимуме датчика давления DMP330L
 #define BCU_I_MAX_PRESSURE 20000	//минимальное значение тока в мкА при максимуме датчика давления DMP330L
-#define Q_TAU				0.01f
-
+#define Q_TAU				0.5f
+#define Q_INT_SEC			2
+#define Q_INTEGRAL_TIME		(Q_INT_SEC * 1000)
+#define Q_T_MUL				(60000 / Q_INT_SEC)
 #pragma pack(1)
-typedef union
-	{
-	struct
-		{
+typedef union {
+	struct {
 		uint16_t pwm1;		//ШИМ1
 		uint16_t pwm2;		//ШИМ2
 		uint16_t position;	//Положение сервопривода
 		uint8_t reserv;		//
 		uint8_t out;		//Значение дискретных выходов
-		}fld;
+	} fld;
 	uint8_t byte[8];
 	uint16_t word[4];
 	uint32_t dword[2];
-	}bcu_tx_data_t; //структура отправляемого пакета
+} bcu_tx_data_t; //структура отправляемого пакета
 
 #pragma pack()
 
-void bcu_init(uint8_t node_id);			//Инициализация устйроства управления гидротормозом (BCU)
-void bcu_step(void);					//Шаг обработки данных устйроства управления гидротормозом (BCU)
+void bcu_init (uint8_t node_id);			//Инициализация устйроства управления гидротормозом (BCU)
+void bcu_step (void);					//Шаг обработки данных устйроства управления гидротормозом (BCU)
 void bcu_set_pwm1 (int32_t data);		//Устанавливает значение ШИМ1
 void bcu_set_pwm2 (int32_t data);		//Устанавливает значение ШИМ2
 void bcu_set_position (int32_t data);	//Устанавливает положение сервопривода
