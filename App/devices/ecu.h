@@ -3,7 +3,7 @@
 #include "arm_math.h"
 #include "J1939.h"
 
-#define ECU_CH				7
+#define ECU_CH				8
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
 #define DAC_FACT			0.060f
 #define SPEED_RESOL			0.125f // rpm
@@ -16,6 +16,7 @@
 #define AIR_P_WEIGHT		2.0f // 2 kPa/bit
 #define AIR_T_WEIGHT		1.0f // 1 deg C/bit
 #define TSC1_STOP_RETRY		20
+#define FUEL_DENSITY		850.0f // плотность ДТ
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);

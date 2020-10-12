@@ -1054,7 +1054,8 @@ void Speed_loop (void) {
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #ifndef ECU_TSC1_CONTROL
 #if ECU_PED_CONTROL
-		EcuPedControl(pi_out);
+		if (safe < SAFE_MAX_VAL)
+			EcuPedControl(pi_out);
 #elif SPSH_20_CONTROL
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);

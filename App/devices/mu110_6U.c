@@ -1,14 +1,26 @@
-#include <string.h>
+#include <stdbool.h>
 #include "mu110_6U.h"
 #include "modbus.h"
 #include "timers.h"
 
 static uint8_t ChN, mu6u_addr, mu6u_err_send;
+uint16_t safe = 0;
+static bool init = false;
 stime_t mu6u_tx_time;
 mu6u_tx_t tx;
 
 static void mu6u_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
-	if (adr == mu6u_addr) mu6u_err_send = 0;
+	if (adr == mu6u_addr) {
+		mu6u_err_send = 0;
+		if (function == MODBUS_READ_HOLDING_REGISTERS) {
+			safe = SWAP16(*(uint16_t *)data);
+			if (safe) {
+				safe++;
+			} else {
+				init = true;
+			}
+		}
+	}
 }
 
 void mu6u_init (uint8_t ch, uint8_t addr) {
@@ -28,9 +40,22 @@ void mu6u_init (uint8_t ch, uint8_t addr) {
 void mu6u_step (void) {
 	if (timers_get_time_left(mu6u_tx_time) == 0) {
 		if (modbus_get_busy(ChN, mu6u_addr, Hi_pr)) return; // интерфейс занят
-		if (modbus_wr_mreg(ChN, mu6u_addr, DAC0_OUT, sizeof(tx) / 2, tx.byte)) {
-			mu6u_tx_time = timers_get_finish_time(MU6U_DATA_TX_TIME);
-			if (mu6u_err_send <= MU6U_MAX_ERR_SEND) mu6u_err_send++;
+		if (!init) {
+			if (!safe) {
+				if (modbus_rd_hold_reg(ChN, mu6u_addr, DAC0_INI, sizeof(safe) / 2)) goto tx_compl;
+			} else {
+				uint16_t tmp = SWAP16(safe);
+				if (modbus_wr_mreg(ChN, mu6u_addr, DAC0_INI, sizeof(safe) / 2, (char *)&tmp)) {
+					init = true;
+					goto tx_compl;
+				}
+			}
+		} else {
+			if (modbus_wr_mreg(ChN, mu6u_addr, DAC0_OUT, sizeof(tx) / 2, tx.byte)) {
+tx_compl:
+				mu6u_tx_time = timers_get_finish_time(MU6U_DATA_TX_TIME);
+				if (mu6u_err_send <= MU6U_MAX_ERR_SEND) mu6u_err_send++;
+			}
 		}
 	}
 }

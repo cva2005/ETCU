@@ -3,6 +3,7 @@
 #include "timers.h"
 #include "types.h"
 #include "mu110_6U.h"
+#include "t46.h"
 #include "ecu.h"
 
 int32_t PedalPos = 0;
@@ -93,6 +94,11 @@ void SaveEngineLP (PGN_65263_t* data) {
 	Data[1] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
 	f = (float32_t)data->FuelDelivery_P * OIL_P_WEIGHT;
 	Data[2] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
+#ifdef ECU_DEBUG
+	Data[4] = 23400; // Todo: ”брать!!!
+	float32_t fp = (23.4 * FUEL_DENSITY) / t46_get_power();
+	Data[7] = (int32_t)(fp * 1000.0); // ”д. эфф. расход топлива (кг/к¬т*ч)
+#endif
 }
 
 void SaveAirFlow (int16_t flow) {
@@ -103,6 +109,8 @@ void SaveAirFlow (int16_t flow) {
 void SaveFuelRate (PGN_65266_t* data) {
 	float32_t f = (float32_t)data->FuelRate * RATE_WEIGHT;
 	Data[4] = (int32_t)(f * 1000.0); // 0 to 3,212.75 L/h (0.05 L/h per bit)
+	float32_t fp = (f * FUEL_DENSITY) / t46_get_power();
+	Data[7] = (int32_t)(fp * 1000.0); // ”д. эфф. расход топлива (кг/к¬т*ч)
 }
 
 void SaveInletExhaust (PGN_65270_t* data) {
