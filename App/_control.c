@@ -308,7 +308,7 @@ void control_init(void) {
 #ifdef ECU_PED_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
 #endif
-#if ECU_PED_CONTROL | ECU_TSC1_CONTROL
+#if ECU_CONTROL
 	smog_init(CH1, ADR_SMOG);
 	agm_init(CH1, ADR_AGM);
 	mv8a_init(CH2, ADR_MV8A);
@@ -410,27 +410,7 @@ void read_devices (void) {
  	if (ds18b20_get_error(8)>2)sg_st.etcu.i.a[ETCU_AI_TEMP8] = ERROR_CODE;
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
-#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
-#if 0
-	if (mv8a_err_link()) for (i = 0; i < /*MV8A_INP*/9; i++)
-		set(AO_PC_1MV8A1 + i, ERROR_CODE);
-	else for (i = 0; i < /*MV8A_INP*/9; i++) // ToDo:
-		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
-	if (agm_err_link()) for (i = 0; i < AGM_CH - 4; i++)
-		set((AO_PC_1MV8A1 + /*MV8A_INP*/9) + i, ERROR_CODE);
-	else for (i = 0; i < AGM_CH - 4; i++)
-		set((AO_PC_1MV8A1 + /*MV8A_INP*/9) + i, agm_read_res(i + 5));
- 	if (smog_err_link()) for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
- 		set(AO_PC_ECU_12 + i, ERROR_CODE);
-  	else for (i = 0; i < 4/*SMG_CH*/; i++) // ToDo:
- 		set(AO_PC_ECU_12 + i, smog_read_res(i));
- 	if (J1939_error()) for (i = 0; i < 4; i++)
-		set(AO_PC_ECU_08 + i, ERROR_CODE);
- 	else for (i = 0; i < 4; i++) // ToDo:
- 		set(AO_PC_ECU_08 + i, ecu_get_data(i));
- 	if (bcu_err_link()) set(AO_PC_ECU_16, ERROR_CODE);
- 	else set(AO_PC_ECU_16, bcu_get_Q());
-#else
+#if ECU_CONTROL
 	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
 		set(AO_PC_1MV8A1 + i, ERROR_CODE);
 	else for (i = 0; i < MV8A_INP; i++)
@@ -449,26 +429,28 @@ void read_devices (void) {
  		set(AO_PC_ECU_01 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_Q_BCU, ERROR_CODE);
  	else set(AO_PC_Q_BCU, bcu_get_Q()); // расход л/мин);
-#endif // #if 0
 #endif
  	//----данные модуля управления гидротормозом
  	int32_t t_bcu;
  	error.bit.no_bcu = bcu_err_link();
 	if (error.bit.no_bcu == 0) {
-		sg_st.bcu.i.d=bcu_get_in();
+		sg_st.bcu.i.d = bcu_get_in();
 		//sg_st.bcu.i.a[0] = bcu_get_t();
 		//sg_st.bcu.i.a[0] = bcu_get_p();
 		t_bcu = (bcu_get_t() * 24) / 12 + 7000;
 		if ((t_bcu > 110000) || (t_bcu < 10000)) t_bcu = ERROR_CODE;
 		sg_st.bcu.i.a[1] = t_bcu; // температура вместо давления в гидротормозе
 		//sg_st.bcu.i.a[2] = bcu_get_position();
-		if (sg_st.bcu.i.d & 0x01) {
+		if (sg_st.bcu.i.d & 0x01) { // вход №1: кнопка "Аварийный Стоп"
 			error.bit.emergancy_stop = 1;
 			state.step = ST_STOP_ERR;
 			cmd.opr = ST_STOP_ERR;
 		} else {
 			error.bit.emergancy_stop = 0;
 		}
+		set(ECU_ERROR_LED, sg_st.bcu.i.d & 0x02); // вход №2: сигнал "АВАРИЯ" из ЭБУ
+		//set(xxx, sg_st.bcu.i.d & 0x04); // вход №3:
+		//set(xxx, sg_st.bcu.i.d & 0x08); // вход №4:
 	} else {
 		sg_st.bcu.i.d = 0;
 		sg_st.bcu.i.a[0] = sg_st.bcu.i.a[1] = sg_st.bcu.i.a[2] = 0;
@@ -592,7 +574,7 @@ void update_devices (void) {
 void read_keys (void) {
 	uint32_t time_all;
 
-	if (timers_get_time_left(time.key_delay)!=0) return;
+	if (timers_get_time_left(time.key_delay) != 0) return;
 	if (st(DI_PC_TEST_START)) {
 		cmd.opr=OPR_START_TEST;
 		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
@@ -605,6 +587,14 @@ void read_keys (void) {
 		error.dword=0;
 		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
+#if ECU_CONTROL
+	int32_t e_key = st(ENGINE_KEY_TASK);
+	if (e_key != st(ENGINE_RELAY)) { // Вкл/Выкл зажигания
+		if ((e_key == OFF) && (cmd.opr != OPR_STOP_TEST)) return;
+		set(ENGINE_RELAY, e_key);
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
+	}
+#endif
 }
 
 //----------------------------------------------------------------------------------------------
@@ -620,7 +610,10 @@ void work_step (void) {
 		TorqueKi = TORQUE_KI * (float32_t)(AI_PC_TORQUE_KI) / 100.0;
 		init_PID(); // Регуляторы контуров управления
 	}
-//--------------------ОБКАТКА----------------------------
+#if ECU_CONTROL
+	if (st(ENGINE_RELAY) == OFF) return; // Зажигание ВЫКЛ.
+#endif
+	//--------------------ОБКАТКА----------------------------
 	if (cmd.opr != state.opr) {
 		state.opr = cmd.opr;
 		state.step = ST_STOP;
@@ -641,15 +634,16 @@ void work_step (void) {
 			state.step = ST_STOP_TIME;
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
+#if ECU_CONTROL
 			if (state.step == ST_STOP) {
-				/*SpeedKp = SPEED_KP * (float32_t)st(AI_PC_SPEED_KP) / 100.0;
-				SpeedKi = SPEED_KI * (float32_t)st(AI_PC_SPEED_KI) / 100.0;
-				TorqueKp = TORQUE_KP * (float32_t)st(AI_PC_TORQUE_KP) / 100.0;
-				TorqueKi = TORQUE_KI * (float32_t)st(AI_PC_TORQUE_KI) / 100.0;
-				init_PID(); // Регуляторы контуров управления*/
+				set(START_RELAY, ON);
+				state.step = ST_WAIT_ENGINE_START;
+				time.alg = timers_get_finish_time(20000);
+			}
+#else // !ECU_CONTROL
+			if (state.step == ST_STOP) {
 				set(DO_OIL_PUMP, ON);
 				set(DO_FUEL_PUMP, ON);
-
 				state.step = ST_FUEL_PUMP;
 				time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
 			}
@@ -689,20 +683,33 @@ void work_step (void) {
 					}
 				}
 			}
+#endif // #if ECU_CONTROL
 			if (state.step == ST_WAIT_ENGINE_START) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+#if ECU_CONTROL
+					set(START_RELAY, OFF);
+					set(GEN_EXC_RELAY, ON); // включить Возбуждение Генератора
+					time.alg = timers_get_finish_time(2000); // на 2 сек.
+#else
 					set(DO_STARTER, OFF);
-					state.step = ST_SET_ROTATION;
 					time.alg = timers_get_finish_time(0);
+#endif
+					state.step = ST_SET_ROTATION;
 					cntrl_M_time = timers_get_finish_time(0);
 				} else {
 					if (timers_get_time_left(time.alg) == 0) {
+						set(START_RELAY, OFF);
 						error.bit.engine_start = 1;
 						state.step = ST_STOP_ERR;
 					}
 				}
 			}
 			if (state.step == ST_SET_ROTATION) { // Двухконтурная регулировка оборотов и момента
+#if ECU_CONTROL
+				if (timers_get_time_left(time.alg) == 0) {
+					set(GEN_EXC_RELAY, OFF); // выключить Возбуждение Генератора
+				}
+#endif
 #ifdef MODEL_OBJ
 				if (timers_get_time_left(time.alg) == 0) {
 					if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
@@ -725,6 +732,7 @@ void work_step (void) {
 				Speed_loop(); // управление контуром оборотов
 				Torque_loop(Absolute); // управление контуром крутящего момента
 			}
+#if !ECU_CONTROL
 		} else { // ! if (st(DI_PC_HOT_TEST))
 //------------------ХОЛОДНАЯ ПРОКРУТКА--------------------------
 			if (state.step == ST_STOP) {
@@ -767,8 +775,9 @@ void work_step (void) {
 #ifdef MODEL_OBJ
 			set(AO_FC_FREQ, (int32_t)(Speed_Out * 1000.0)); // Заданая скорость вращения -> на частотник
 			//sg_st.bcu.i.a[4] = st(AI_PC_ROTATE); // ToDo
-#endif
-#endif
+#endif // #ifdef MODEL_OBJ
+#endif // #ifndef NO_FREQ_DRIVER
+#endif // #if !ECU_CONTROL
 		}
 //--------------------ОСТАНОВКА-------------------------------
 	} else {
@@ -881,6 +890,15 @@ void set_indication (void) {
 	//set(AO_PC_TIME, rtc_sens_get_time());
 	//set(AO_PC_DATE, rtc_sens_get_date());
 //---------------ламочки
+#if ECU_CONTROL
+	set(ENGINE_ON_LED, st(ENGINE_RELAY));				//Сигнал: Зажигание Включено
+	set(DO_PC_COOLANT_FAN, st(DO_COOLANT_FAN));			//Сигнал:
+	set(DO_PC_COOLANT_PUMP, st(DO_COOLANT_PUMP));		//Сигнал:
+	set(DO_PC_OIL_PUMP,	st(DO_OIL_PUMP));				//Сигнал:
+	set(DO_PC_COOLANT_HEATER, st(DO_COOLANT_HEATER));	//Сигнал:
+	set(GEN_EXC_LED, st(GEN_EXC_RELAY));				//Сигнал: Возбуждение Генератора
+	set(DO_PC_OIL_FAN, st(DO_OIL_FAN));     			//Сигнал:
+#else
 	set(DO_PC_STARTER, st(DO_STARTER));					//Сигнал: Стратер
 	set(DO_PC_COOLANT_FAN, st(DO_COOLANT_FAN));			//Сигнал: Вентилятор ОЖ
 	set(DO_PC_COOLANT_PUMP, st(DO_COOLANT_PUMP));		//Сигнал: Насос ОЖ
@@ -888,8 +906,9 @@ void set_indication (void) {
 	set(DO_PC_COOLANT_HEATER, st(DO_COOLANT_HEATER));	//Сигнал: Нагреватель ОЖ
 	set(DO_PC_OIL_HEATER, st(DO_OIL_HEATER));			//Сигнал: Нагреватель масла
 	set(DO_PC_FUEL_PUMP, st(DO_FUEL_PUMP));				//Сигнал: Включить ТНВД
-	set(DO_PC_BRAKE_FAIL, error.bit.err_brake);			//Сигнал: авария гидротормоза
 	set(DO_PC_OIL_FAN, st(DO_OIL_FAN));     			//Сигнал: Вентилятор масла
+#endif
+	set(DO_PC_BRAKE_FAIL, error.bit.err_brake);			//Сигнал: авария гидротормоза
 //---------------статуcы
 	set(AO_PC_STATUS, state.step);
 	set(AO_PC_ERR_MAIN, error.dword);

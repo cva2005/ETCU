@@ -25,6 +25,7 @@
 #define PC_RQ_CONNECT 0x10		//запрос соединения
 #define PC_RSP_CONNECT 0x11		//ответ на запрос соединения
 
+#define ECU_CONTROL (ECU_PED_CONTROL | ECU_TSC1_CONTROL)
 //=========================================СИГНАЛЫ==============================================
 #pragma pack(1)
 typedef union
@@ -79,6 +80,16 @@ enum {
 	CFG_TIMOUT_SET_TORQUE,	//Время установки заданного крутящего моента
 #endif
 //сигналы ETCU
+#if ECU_CONTROL
+	DO_STARTER,				//Сигнал: Включено зажигание
+	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
+
+	DO_COOLANT_PUMP,		//Сигнал:
+	DO_OIL_PUMP,			//Сигнал:
+	DO_COOLANT_HEATER,		//Сигнал: Запуск Двигателя
+	DO_OIL_HEATER,			//Сигнал:
+	DO_FUEL_PUMP,			//Сигнал: Возбуждение Генератора
+#else
 	DO_STARTER,				//Сигнал: Стратер
 	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
 
@@ -87,7 +98,7 @@ enum {
 	DO_COOLANT_HEATER,		//Сигнал: Нагреватель ОЖ
 	DO_OIL_HEATER,			//Сигнал: Нагреватель масла
 	DO_FUEL_PUMP,			//Сигнал: Включить ТНВД
-
+#endif
 	AI_T_EXHAUST,			//Аналоговый: Температура выхлопных газов
 	AI_T_COOLANT_IN,		//Аналоговый: Температура ОЖ на входе
 	AI_T_COOLANT_OUT,		//Аналоговый: Температура ОЖ на выходе
@@ -156,6 +167,24 @@ enum {
 	AI_CDU_ST,
 	AI_CDU_ERR,
 //сигналы PC
+#if ECU_CONTROL
+	DI_PC_TEST_START,			//Сигнал:
+	DI_PC_TEST_STOP,			//Сигнал:
+	DI_PC_FIRE_ALARM,			//Сигнал: Включить зажигание
+	DI_PC_HOT_TEST,				//Сигнал:
+	DI_PC_SET_TIME,				//Сигнал:
+	DI_PC_BRAKE_TEST,			//Сигнал:
+
+	DO_PC_STARTER,				//Сигнал: Включено зажигание
+	DO_PC_COOLANT_FAN,			//Сигнал:
+	DO_PC_COOLANT_PUMP,			//Сигнал:
+	DO_PC_OIL_PUMP,				//Сигнал:
+	DO_PC_COOLANT_HEATER,		//Сигнал:
+	DO_PC_OIL_HEATER,			//Сигнал: Лампа "АВАРИЯ" ЭБУ
+    DO_PC_FUEL_PUMP,			//Сигнал: Возбуждение Генератора
+	DO_PC_BRAKE_FAIL,			//Сигнал:
+	DO_PC_OIL_FAN,              //Сигнал:
+#else
 	DI_PC_TEST_START,			//Сигнал: Запустить испытание
 	DI_PC_TEST_STOP,			//Сигнал: Остановить испытание
 	DI_PC_FIRE_ALARM,			//Сигнал: Возгорание
@@ -172,6 +201,7 @@ enum {
     DO_PC_FUEL_PUMP,			//Сигнал: Включить ТНВД
 	DO_PC_BRAKE_FAIL,			//Сигнал: авария гидротормоза
 	DO_PC_OIL_FAN,              //Сигнал: Вентилятор масла
+#endif
 	
 	AI_PC_TORQUE,			//Аналоговый: Заданая нагрузка (момент на валу)
 	AI_PC_ROTATE,			//Аналоговый: Заданая скорость вращения
@@ -190,7 +220,7 @@ enum {
 	AO_PC_T_FUEL,			//Аналоговый: Температура топлива
 	AO_PC_FUEL_CONSUM,		//Аналоговый: расход топлива
 	AO_PC_FUEL_LEVEL,		//Аналоговый: Датчик уровня топлива
-#if 0 // убрать в новой версии !!!
+#if !ECU_CONTROL // убрать в новой версии !!!
 	AO_PC_T_EXT1,			//Аналоговый: Датчик темературы локального нагрева 1
 	AO_PC_T_EXT2,			//Аналоговый: Датчик темературы локального нагрева 2
 	AO_PC_T_EXT3,			//Аналоговый: Датчик темературы локального нагрева 3
@@ -223,7 +253,7 @@ enum {
 	AO_PC_T_BRAKE,			//Аналоговый: Температура в гидротормозе
 	AO_PC_SET_BRAKE,		//Аналоговый: Установленная мощность гидротормоза в м%
 	//----------------------------
-#ifdef NEW_PC_AO
+#ifdef ECU_CONTROL
 	AO_PC_1MV8A1,			// Т input 1
 	AO_PC_1MV8A2,			// Т input 2
 	AO_PC_1MV8A3,			// Т input 3
@@ -283,7 +313,7 @@ enum {
 	//----------------------------
 	SIG_END,
 };
-#define SAVE_PID_VAL		DI_PC_SET_TIME	// Сигнал: применить коэффициенты ПИД-регуляторов
+#define SAVE_PID_VAL		DI_PC_SET_TIME // Сигнал: применить коэффициенты ПИД-регуляторов
 #define AI_PC_SPEED_KP_KI	AI_PC_DATE
 #define AI_PC_TORQUE_KP_KI	AI_PC_TIME
 #define AO_PC_SPEED_KP_KI	AO_PC_DATE
@@ -292,6 +322,13 @@ enum {
 #define AI_PC_SPEED_KP		(st(AI_PC_SPEED_KP_KI) >> 16)
 #define AI_PC_TORQUE_KI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
 #define AI_PC_TORQUE_KP		(st(AI_PC_TORQUE_KP_KI) >> 16)
+#define ENGINE_KEY_TASK		DI_PC_FIRE_ALARM // Сигнал: Включить зажигание
+#define ENGINE_ON_LED		DO_PC_STARTER // Сигнал: Включено зажигание
+#define ECU_ERROR_LED		DO_PC_OIL_HEATER // Сигнал: Лампа "АВАРИЯ" ЭБУ
+#define GEN_EXC_LED			DO_PC_FUEL_PUMP // Сигнал: Возбуждение Генератора
+#define ENGINE_RELAY		DO_STARTER // Сигнал: Включено зажигание
+#define GEN_EXC_RELAY		DO_FUEL_PUMP // Сигнал: Возбуждение Генератора
+#define START_RELAY			DO_COOLANT_HEATER // Сигнал: Запустить Двигатель
 
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct

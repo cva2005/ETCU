@@ -53,7 +53,7 @@ void main_app (void) {
 	HAL_IWDG_Start(&hiwdg);
 #endif
 	adc_init();
-#if ECU_PED_CONTROL | ECU_TSC1_CONTROL
+#if ECU_CONTROL
 	rs485_1_init(4800);
 #else
 	rs485_1_init(38400);
@@ -62,7 +62,7 @@ void main_app (void) {
 	wifi_hf_init(115200);//wifi_hf_init(460800);
 #ifdef SPSH_20_CONTROL
 	can_1_init(CAN_1_SPEED_500K);
-#elif ECU_PED_CONTROL | ECU_TSC1_CONTROL
+#elif ECU_CONTROL
 	can_1_init(CAN_1_SPEED_250K);
 #endif
 	can_2_init(CAN_2_SPEED_250K);
