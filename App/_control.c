@@ -633,14 +633,15 @@ void work_step (void) {
 		if (timers_get_time_left(time.all) == 0)
 			state.step = ST_STOP_TIME;
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
-		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
 #if ECU_CONTROL
+		if (st(DI_PC_HOT_TEST) || st(DI_PC_BRAKE_TEST)) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
 				state.step = ST_WAIT_ENGINE_START;
 				time.alg = timers_get_finish_time(20000);
 			}
 #else // !ECU_CONTROL
+		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
 			if (state.step == ST_STOP) {
 				set(DO_OIL_PUMP, ON);
 				set(DO_FUEL_PUMP, ON);
@@ -730,9 +731,13 @@ void work_step (void) {
 				}
 #endif
 				Speed_loop(); // управление контуром оборотов
-				Torque_loop(Absolute); // управление контуром крутящего момента
+#if ECU_CONTROL
+				if (st(DI_PC_BRAKE_TEST)) Torque_loop(Percent);
+				else Torque_loop(Absolute);
 			}
-#if !ECU_CONTROL
+#else
+				Torque_loop(Absolute);
+			}
 		} else { // ! if (st(DI_PC_HOT_TEST))
 //------------------ХОЛОДНАЯ ПРОКРУТКА--------------------------
 			if (state.step == ST_STOP) {
@@ -924,7 +929,9 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 }
 
 void work_stop (void) {
+#if !ECU_CONTROL
 	set(DO_STARTER, OFF);
+#endif
 	set(AO_FC_FREQ, 0);
 #ifdef NO_FREQ_DRIVER
 	set(AI_PC_ROTATE, 0);
