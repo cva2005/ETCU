@@ -296,6 +296,7 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define PGN_65270 65270 << 8
 #define PGN_65276 65276 << 8
 #define TSC1_PGN		00000
+#define ENH_PGN			65253
 // Source Address ID
 #define Engine1				0
 #define Engine2				1

@@ -75,7 +75,7 @@ void main_app (void) {
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
-#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
+#if ECU_CONTROL
 	canJ1939_init();
 #elif SPSH_20_CONTROL
 	pc_link_init();

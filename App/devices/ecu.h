@@ -3,7 +3,7 @@
 #include "arm_math.h"
 #include "J1939.h"
 
-#define ECU_CH				8
+#define ECU_CH				9
 #define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
 #define DAC_FACT			0.060f
 #define SPEED_RESOL			0.125f // rpm
@@ -16,7 +16,8 @@
 #define AIR_P_WEIGHT		2.0f // 2 kPa/bit
 #define AIR_T_WEIGHT		1.0f // 1 deg C/bit
 #define TSC1_STOP_RETRY		20
-#define FUEL_DENSITY		850.0f // плотность ДТ
+#define FUEL_DENSITY		0.850f // плотность ДТ
+#define ENGINE_H_WEIGHT		0.05f // 0.05 hr/bit
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
@@ -27,6 +28,7 @@ void SaveEngineLP (PGN_65263_t* data);
 void SaveFuelRate (PGN_65266_t* data);
 void SaveInletExhaust (PGN_65270_t* data);
 void SaveAirFlow (int16_t flow);
+void SaveEngineHours (PGN_65253_t* data);
 int32_t EcuPedalPos (void);
 uint8_t EcuPedError (void);
 int32_t ecu_get_data (uint8_t ch);
@@ -35,7 +37,6 @@ void SaveFuelLevel (int8_t lev);
 void SaveEngineSpeed (int16_t pos);
 void SaveRailPressure (int16_t press);
 void SaveTorqPercent (int8_t perc);
-void SaveEngineHours (PGN_65253_t* data);
 #endif
 
 #endif /* APP_DEVICES_ECU_H_ */

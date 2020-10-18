@@ -9,10 +9,11 @@ static bool time_out;
 
 void canJ1939_init (void) {
 	//can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_61444, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_65247, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_61444, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_65247, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	can_1_set_filter32(PGN_61450, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65253, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65262, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65263, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -45,6 +46,9 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	case 61450: // Electronic Engine Controller 1 (50 мсек)
 		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
 		break;
+	case 65253: // Engine Hours, Revolutions (по запросу)
+		SaveEngineHours((PGN_65253_t *)data);
+		break;
 	case 65262: // Engine Temperature 1 (1000 мсек)
 		SaveEngineTemp((PGN_65262_t *)data);
 		break;
@@ -70,9 +74,6 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	case 65247: // Nominal Friction - Percent Torque (250 мсек)
 		SaveTorqPercent(((PGN_65247_t *)data)->NominalFriction);
 		break;
-	case 65253: // Engine Hours, Revolutions (по запросу)
-		SaveEngineHours((PGN_65253_t *)data);
-		break;
 	case 65276: // Dash Display (1000 мсек)
 		SaveFuelLevel(((PGN_65276_t *)data)->Fuel_L1);
 		break;
@@ -88,7 +89,7 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	PGN_00000_t png; J1939_ID_t id; uint8_t cc;
 	for (cc = 0; cc < sizeof(png); cc++) *((uint8_t *)&png + cc) = 0;
 	id.P = 03; // Priority
-	id.R = 0; // Should always be set to 0 when transmitting messages
+	id.R = Engine1; // Should always be set to Engine1 when transmitting messages
 	id.PGN = TSC1_PGN; // Torque/Speed Control 1
 	id.SA = Transmission1;
 	if (spd) {
@@ -108,6 +109,15 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		png.ControlConditions = cc; // ToDo: зависит от нагрузки
 	} // else png.ControlMode = OverrideDis;
 	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
+}
+
+uint8_t GetEngineHours (void) {
+	J1939_ID_t id;
+	id.P = 03; // Priority
+	id.R = Engine1;
+	id.PGN = ENH_PGN; // Engine Hours
+	id.SA = Engine2;
+	return j1939Transmit ((uint8_t *)NULL, 0, id);
 }
 
 bool J1939_error (void) {

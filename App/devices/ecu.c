@@ -118,14 +118,16 @@ void SaveInletExhaust (PGN_65270_t* data) {
 	Data[5] = (int32_t)(f * 1000.0); // 0 to 500 kPa (2 kPa/bit)
 	f = (float32_t)data->Manifold_1_T * AIR_T_WEIGHT;
 	Data[6] = (int32_t)(f * 1000.0); // -40 to 210 deg C (1 deg C/bit)
+}
 
+void SaveEngineHours (PGN_65253_t* data) {
+	float32_t h = (float32_t)data->TotalHours * ENGINE_H_WEIGHT;
+	Data[8] = (int32_t)(h); // Total Hours
+	//Data[8] = 246900; // ToDo:
 }
 
 #if 0
 void SaveFuelLevel (int8_t lev) {
-}
-
-void SaveEngineHours (PGN_65253_t* data) {
 }
 
 void SavePedalPosition (int8_t pos) {

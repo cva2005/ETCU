@@ -638,7 +638,11 @@ void work_step (void) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
 				state.step = ST_WAIT_ENGINE_START;
-				time.alg = timers_get_finish_time(20000);
+				time.alg = timers_get_finish_time(15000);
+#ifdef MODEL_OBJ
+						init_obj(); // нач. установка ОР1, ОР2
+						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
+#endif
 			}
 #else // !ECU_CONTROL
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
@@ -688,6 +692,7 @@ void work_step (void) {
 			if (state.step == ST_WAIT_ENGINE_START) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
 #if ECU_CONTROL
+engine_start:
 					set(START_RELAY, OFF);
 					set(GEN_EXC_RELAY, ON); // включить Возбуждение Генератора
 					time.alg = timers_get_finish_time(2000); // на 2 сек.
@@ -699,9 +704,13 @@ void work_step (void) {
 					cntrl_M_time = timers_get_finish_time(0);
 				} else {
 					if (timers_get_time_left(time.alg) == 0) {
+#ifdef MODEL_OBJ
+						goto engine_start;
+#else
 						set(START_RELAY, OFF);
 						error.bit.engine_start = 1;
 						state.step = ST_STOP_ERR;
+#endif
 					}
 				}
 			}
@@ -710,7 +719,7 @@ void work_step (void) {
 				if (timers_get_time_left(time.alg) == 0) {
 					set(GEN_EXC_RELAY, OFF); // выключить Возбуждение Генератора
 				}
-#endif
+#else
 #ifdef MODEL_OBJ
 				if (timers_get_time_left(time.alg) == 0) {
 					if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
@@ -718,6 +727,7 @@ void work_step (void) {
 					}
 				}
 #endif // MODEL_OBJ
+#endif
 #ifdef SPSH_20_CONTROL
 				int32_t pos = st(AI_SERVO_POSITION);
 				if (pos > MAX_SERVO_POSITION || pos < MIN_SERVO_POSITION) {
