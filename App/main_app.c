@@ -88,12 +88,12 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#if ECU_TSC1_CONTROL | ECU_PED_CONTROL
+#if ECU_CONTROL
 		smog_step();
 		agm_step();
 		J1939_step();
 		mv8a_step();
-#ifdef ECU_PED_CONTROL
+#ifdef ECU_CONTROL
 		mu6u_step();
 #endif
 #elif SPSH_20_CONTROL

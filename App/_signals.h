@@ -310,6 +310,7 @@ enum {
 	AO_PC_ECU_07,			//65270/105: Температура воздуха после охладителя наддувочного воздуха
 	AO_PC_ECU_08,			//расчетный: Удельный эффективный расход топлива (г/кВт*ч)
 	AO_PC_ECU_09,			//65253/247: Engine Total Hours of Operation
+	AO_PC_ECU_10,			//65262/110: Engine Coolant Temperature
 #endif
 	//----------------------------
 	SIG_END,

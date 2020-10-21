@@ -9,7 +9,7 @@
 #define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #endif
 #define ERROR_CODE					0x7FFFFFFF
-#define DEF_KEY_DELAY				500		//Антидребезг на кнопки
+#define DEF_KEY_DELAY				1500	//Антидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мА
 #define DEF_MAX_SERVO_POSITION		5000000	//максимальное положение сревопривода,
 #define DEF_MAX_ENGINE_SPEED		(735 * 1000) //максимальные обороты электромотора
@@ -27,6 +27,7 @@
 
 #define OPR_STOP_TEST		0
 #define OPR_START_TEST		1
+#define OPR_KEY_ON			2
 
 typedef struct {
 	uint8_t opr;

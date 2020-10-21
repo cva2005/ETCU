@@ -68,10 +68,11 @@
 									<listOptionValue builtIn="false" value="ARM_MATH_CM4"/>
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
-									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="NO_3DPAS_DRIVER"/>
-									<listOptionValue builtIn="false" value="ECU_PED_CONTROL=1"/>
+									<listOptionValue builtIn="false" value="NO_TORQ_DRIVER"/>
+									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
+									<listOptionValue builtIn="false" value="ECU_TSC1_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -187,7 +188,6 @@
 									<listOptionValue builtIn="false" value="ARM_MATH_CM4"/>
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
-									<listOptionValue builtIn="false" value="PID_ADAPTIVE"/>
 									<listOptionValue builtIn="false" value="NO_FREQ_DRIVER"/>
 									<listOptionValue builtIn="false" value="NO_3DPAS_DRIVER"/>
 									<listOptionValue builtIn="false" value="ECU_PED_CONTROL=1"/>

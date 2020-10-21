@@ -3,9 +3,11 @@
 #include "arm_math.h"
 #include "J1939.h"
 
-#define ECU_CH				9
-#define DAC_OUT_MAX			500 // максимальное значение выхода == 5В
-#define DAC_FACT			0.060f
+#define ECU_CH				10
+#define DAC_OUT_MIN			65  // минимальное значение выхода: 5В * 13%
+#define DAC_OUT_MAX			445 // максимальное значение выхода: 5В * 89%
+#define DAC_OUT_DIFF		(DAC_OUT_MAX - DAC_OUT_MIN)
+#define DAC_FACT			0.0456f
 #define SPEED_RESOL			0.125f // rpm
 #define TORQUE_LIM			125.0f // %
 #define FLOW_WEIGHT			0.05f // kg/h per bit
@@ -13,11 +15,14 @@
 #define F_ECON_WEIGHT		512.0f // 1/512 km/L per bit
 #define OIL_P_WEIGHT		4.0f // 4 kPa/bit
 #define OIL_T_WEIGHT		0.03125f // 0.03125 deg C/bit
+#define OIL_T_OFFSET		273.0f
 #define AIR_P_WEIGHT		2.0f // 2 kPa/bit
 #define AIR_T_WEIGHT		1.0f // 1 deg C/bit
+#define AIR_T_OFFSET		40.0f
 #define TSC1_STOP_RETRY		20
 #define FUEL_DENSITY		0.850f // плотность ДТ
 #define ENGINE_H_WEIGHT		0.05f // 0.05 hr/bit
+#define OIL_C_OFFSET		40
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);

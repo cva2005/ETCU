@@ -41,6 +41,7 @@ extern sg_t sg_st;					//состояние сигналов
 static state_t state;
 static cmd_t cmd;
 static timeout_t time;
+static timeout_t t_corr;
 static error_t error;
 static stime_t cntrl_M_time; // таймер дискретизации регулятора момента
 arm_pid_instance_f32 Speed_PID;
@@ -57,18 +58,27 @@ void Torque_loop (torq_val_t val);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
-#ifdef ECU_PED_CONTROL
+#ifdef ECU_CONTROL
+static float32_t corr_max;
 #ifdef MODEL_OBJ
 	#define SPEED_KP			0.20f
 	#define SPEED_KI			0.023f
+#if ECU_CONTROL
+	#define SPEED_KD			0.02f
+#else
 	#define SPEED_KD			0.0002f
+#endif
 	#define TORQUE_KP			0.15f
 	#define TORQUE_KI			0.08f
 	#define TORQUE_KD			0.001f
 #else
 	#define SPEED_KP			0.20f
 	#define SPEED_KI			0.023f
+#if ECU_CONTROL
+	#define SPEED_KD			0.020f
+#else
 	#define SPEED_KD			0.0002f
+#endif
 	#define TORQUE_KP			0.10f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
@@ -305,7 +315,7 @@ void control_init(void) {
 #ifndef NO_3DPAS_DRIVER
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
 #endif
-#ifdef ECU_PED_CONTROL
+#ifdef ECU_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
 #endif
 #if ECU_CONTROL
@@ -444,7 +454,7 @@ void read_devices (void) {
 		if (sg_st.bcu.i.d & 0x01) { // вход №1: кнопка "Аварийный Стоп"
 			error.bit.emergancy_stop = 1;
 			state.step = ST_STOP_ERR;
-			cmd.opr = ST_STOP_ERR;
+			cmd.opr = OPR_STOP_TEST;
 		} else {
 			error.bit.emergancy_stop = 0;
 		}
@@ -465,7 +475,7 @@ void read_devices (void) {
  	if (t_bcu > T_OIL_ERR) {
 		error.bit.err_brake = 1; //ощибка гидротормоза
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
  	}
 //----данные ПЧ
 #ifndef NO_FREQ_DRIVER
@@ -477,12 +487,11 @@ void read_devices (void) {
 		sg_st.fc.i.a[0] = 0;
 		error.bit.err_fc = 0;
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	}
 #endif
 //----данные сервопривода
-#ifdef ECU_TSC1_CONTROL
-#elif ECU_PED_CONTROL
+#ifdef ECU_CONTROL
 	if (EcuPedError() == 0) {
 		sg_st.ta.i.a[0] = EcuPedalPos();
 	} else {
@@ -490,7 +499,7 @@ void read_devices (void) {
 		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
 		error.bit.no_ta = 1;
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	}
 #elif SPSH_20_CONTROL
 	if (spsh20_err_link() == 0) {
@@ -502,7 +511,7 @@ servo_err:
 		sg_st.ta.i.a[2]=SERVO_LINK_ERR;
 		error.bit.no_ta = 1;
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	}
 #elif SERVO_CONTROL
 	servo_st srv_st = servo_state();
@@ -522,7 +531,7 @@ servo_err:
 		}
 servo_stop_error:
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	} else { //extern uint32_t CurrTime;
 		//sg_st.ta.i.a[0] = CurrTime * 1000;
 		sg_st.ta.i.a[0] = servo_get_pos()  * 1000;
@@ -550,7 +559,7 @@ servo_stop_error:
 		sg_st.bcu.i.a[3] = sg_st.bcu.i.a[4] = sg_st.bcu.i.a[5] = 0;
 		error.bit.no_trq = 1;
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	}
 #else
 	sg_st.bcu.i.a[3] = (int32_t)(Torque_Out * 1000);
@@ -576,22 +585,35 @@ void read_keys (void) {
 
 	if (timers_get_time_left(time.key_delay) != 0) return;
 	if (st(DI_PC_TEST_START)) {
-		cmd.opr=OPR_START_TEST;
-		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
-		time_all=st(AI_PC_DURATION);
-		time_all=st(AI_PC_DURATION)*60*1000;
-		time.all=timers_get_finish_time(time_all);
+		cmd.opr = OPR_START_TEST;
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
+		time_all = st(AI_PC_DURATION);
+		time_all = st(AI_PC_DURATION)*60*1000;
+		time.all  =timers_get_finish_time(time_all);
 	}
 	if (st(DI_PC_TEST_STOP)) {
-		cmd.opr=OPR_STOP_TEST;
-		error.dword=0;
-		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
+		cmd.opr = OPR_STOP_TEST;
+		error.dword = 0;
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
+#if 0
+	if (st(ENGINE_KEY_TASK)) {
+		state.opr = OPR_KEY_ON;
+		cmd.opr = OPR_KEY_ON;
+		set(ENGINE_RELAY, ON);
+		set(DO_OIL_PUMP, ON);
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
+	}
+#endif
 #if ECU_CONTROL
-	int32_t e_key = st(ENGINE_KEY_TASK);
-	if (e_key != st(ENGINE_RELAY)) { // Вкл/Выкл зажигания
-		if ((e_key == OFF) && (cmd.opr != OPR_STOP_TEST)) return;
-		set(ENGINE_RELAY, e_key);
+	if (st(ENGINE_KEY_TASK)) { // Вкл. зажигания
+		if (!st(ENGINE_RELAY)) {
+			cmd.opr = OPR_KEY_ON;
+			set(ENGINE_RELAY, ON);
+			set(DO_OIL_PUMP, ON);
+		} else {
+			if (cmd.opr != OPR_STOP_TEST) return;
+		}
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
 #endif
@@ -610,9 +632,6 @@ void work_step (void) {
 		TorqueKi = TORQUE_KI * (float32_t)(AI_PC_TORQUE_KI) / 100.0;
 		init_PID(); // Регуляторы контуров управления
 	}
-#if ECU_CONTROL
-	if (st(ENGINE_RELAY) == OFF) return; // Зажигание ВЫКЛ.
-#endif
 	//--------------------ОБКАТКА----------------------------
 	if (cmd.opr != state.opr) {
 		state.opr = cmd.opr;
@@ -634,14 +653,14 @@ void work_step (void) {
 			state.step = ST_STOP_TIME;
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
 #if ECU_CONTROL
-		if (st(DI_PC_HOT_TEST) || st(DI_PC_BRAKE_TEST)) {
+		if (1) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
 				state.step = ST_WAIT_ENGINE_START;
 				time.alg = timers_get_finish_time(15000);
 #ifdef MODEL_OBJ
-						init_obj(); // нач. установка ОР1, ОР2
-						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
+				init_obj(); // нач. установка ОР1, ОР2
+				Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
 #endif
 			}
 #else // !ECU_CONTROL
@@ -795,8 +814,7 @@ engine_start:
 #endif // #if !ECU_CONTROL
 		}
 //--------------------ОСТАНОВКА-------------------------------
-	} else {
-		cmd.opr = ST_STOP;
+	} else if (state.opr == OPR_STOP_TEST) {
 #if SERVO_CONTROL
 		servo_stop = true;
 #endif
@@ -855,7 +873,7 @@ void set_indication (void) {
 	if ((val < LEVEL_MIN) || (val == ERROR_CODE)) {
 		error.bit.err_brake = 1; //ощибка гидротормоза
 		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
 	}
 	set(AO_PC_T_OIL_OUT, val); // Уровень масла XP7
 	//аналоговые датчики
@@ -881,7 +899,7 @@ void set_indication (void) {
 
 	//ток и напряжение АКБ
 	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
-	val /= 10; // шунт 100А 750мкВ
+	//val /= 10; // шунт 100А 750мкВ
 	set(AO_PC_CURRENT, val);
 	set(AO_PC_VOLTAGE, st(AI_U_AKB));
 	//сигналы педали газа
@@ -941,6 +959,8 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 void work_stop (void) {
 #if !ECU_CONTROL
 	set(DO_STARTER, OFF);
+#else
+	set(ENGINE_RELAY, OFF);
 #endif
 	set(AO_FC_FREQ, 0);
 #ifdef NO_FREQ_DRIVER
@@ -968,7 +988,7 @@ void work_stop (void) {
 	init_PID();
 #ifdef ECU_TSC1_CONTROL
 	if (ControlState()) {
-		EcuTSC1Control (0, 0);
+		EcuTSC1Control(0, 0);
 		StopCount = TSC1_STOP_RETRY;
 	} else {
 		if (StopCount) {
@@ -980,7 +1000,8 @@ void work_stop (void) {
 	spsh20_set_pos(0);
 #elif SERVO_CONTROL
 	servo_set_out(0);
-#elif ECU_PED_CONTROL
+#endif
+#if ECU_CONTROL
 	EcuPedControl(0);
 #endif
 #ifdef MODEL_OBJ
@@ -1041,7 +1062,12 @@ void init_PID (void) {
 	arm_pid_init_f32(&Torque_PID, PID_RESET);
 }
 
-#define TORQUE_MAX			400.0f // Нм
+#if ECU_CONTROL
+	#define TORQUE_MAX			800.0f // Нм
+#else
+	#define TORQUE_MAX			400.0f // Нм
+#endif
+#define TORQUE_CORR			20.0f
 #define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
 #define SPEED_MUL			-40.00f
@@ -1051,7 +1077,7 @@ void init_PID (void) {
 	#define ZONE_DEAD_REF		0.0f
 	#define SERVO_STATE			0.0f
 #elif ECU_PED_CONTROL
-	#define ZONE_DEAD_REF		25.0f
+	#define ZONE_DEAD_REF		10.0f
 	#define SERVO_STATE			(float32_t)(EcuPedalPos() / 1000)
 #elif  SERVO_CONTROL
 	#define SERVO_STATE			servo_get_pos()
@@ -1069,24 +1095,38 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		torq_corr = (Torque_Out / TORQUE_MAX);
-		if (torq_corr > 1.0) torq_corr = 1.0;
+		pi_out = st(AI_PC_TORQUE) / 1000.0;
+		torq_corr = (pi_out / TORQUE_MAX);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 #ifdef ECU_TSC1_CONTROL
 		EcuTSC1Control(task, torq_corr);
 #endif
 		task -= Speed_Out; // PID input Error
-#ifdef PID_ADAPTIVE
 		float32_t tmp = fabs(task);
+#ifdef PID_ADAPTIVE
+		pi_out -= Torque_Out; // PID input Error
+		float32_t abs_corr = fabs(pi_out / TORQUE_CORR);
+#endif
 		if ((SERVO_STATE >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
-			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
+#ifdef PID_ADAPTIVE
+			if (timers_get_time_left(t_corr.alg) == 0) {
+				corr_max = 0;
+			}
+			if (abs_corr > corr_max) {
+				corr_max = abs_corr;
+				t_corr.alg = timers_get_finish_time(10000);
+			}
+			Speed_PID.Kp = SpeedKp * (1 + corr_max);
+			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + corr_max);
+#else
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + torq_corr);
+#endif
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		if (tmp < ZONE_DEAD_REF) task = 0;
-#endif
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #ifndef ECU_TSC1_CONTROL
 #if ECU_PED_CONTROL

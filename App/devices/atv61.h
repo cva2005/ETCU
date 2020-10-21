@@ -11,7 +11,7 @@
 #define APP_DEVICES_ATV61_H_
 #include "types.h"
 
-#define ATV61_CONNECT_TIME 2000	//Макисмальное допустимое врем ожидания пакетов от ATV61, при превышении считается связь с ATV61 потерянной
+#define ATV61_CONNECT_TIME 1000	//Макисмальное допустимое врем ожидания пакетов от ATV61, при превышении считается связь с ATV61 потерянной
 #define ATV61_DATA_TX_TIME 200	//Таймаут между отправляемыми пакетами к ATV61
 #define ATV61_DATA_TX_INIT 200	//Таймаут между отправляемыми пакетами инициализации
 #define ATV61_MAX_ERR_SEND	2	// Максимально допустимое количество запросов без ответа
@@ -97,5 +97,6 @@ void atv61_update_data (char *data, uint8_t len, uint32_t adr);	//Обработчик пак
 #define MB_Speed_ref		8602 // R/W (rpm INT 16 signed bits)
 #define MB_Status_word2		8603 // R-O
 #define MB_Output_speed		8604 // R-O
+#define MB_Input_word		12704// R/W
 
 #endif /* APP_DEVICES_ATV61_H_ */

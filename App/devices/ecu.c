@@ -70,10 +70,10 @@ bool ControlState (void) {
 	return TSC1state;
 }
 void EcuPedControl (float32_t out) {
-	uint16_t data = (uint16_t)(out * DAC_FACT);
-	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX; // 0...5В
+	uint16_t data = DAC_OUT_MIN + (uint16_t)(out * DAC_FACT);
+	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX;
 	mu6u_set_out(data); // уст. выходы DAC0, DAC1
-	PedalPos = data * ((1000 / DAC_OUT_MAX) * 100); // положение сервопривода %
+	PedalPos = (data - DAC_OUT_MIN) * (100000 / DAC_OUT_DIFF); // положение сервопривода %
 }
 
 uint8_t EcuPedError (void) {
@@ -86,7 +86,8 @@ int32_t EcuPedalPos (void) {
 
 void SaveEngineTemp (PGN_65262_t* data) {
 	float32_t f = (float32_t)data->Oil_T * OIL_T_WEIGHT;
-	Data[0] =  (int32_t)(f * 1000.0); // -273 to 1734.96875 deg C (0.03125 deg C/bit)
+	Data[0] =  (int32_t)((f - OIL_T_OFFSET) * 1000.0); // -273 to 1734.96875 deg C (0.03125 deg C/bit)
+	Data[9] = (data->Coolant_T - OIL_C_OFFSET) * 1000; // -40 to 210 deg C (1 deg C/bit)
 }
 
 void SaveEngineLP (PGN_65263_t* data) {
@@ -94,11 +95,6 @@ void SaveEngineLP (PGN_65263_t* data) {
 	Data[1] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
 	f = (float32_t)data->FuelDelivery_P * OIL_P_WEIGHT;
 	Data[2] = (int32_t)(f * 1000.0); // 0 to 1000 kPa (4 kPa/bit)
-#ifdef ECU_DEBUG
-	Data[4] = 23400; // Todo: Убрать!!!
-	float32_t fp = (23.4 * FUEL_DENSITY) / t46_get_power();
-	Data[7] = (int32_t)(fp * 1000.0); // Уд. эфф. расход топлива (кг/кВт*ч)
-#endif
 }
 
 void SaveAirFlow (int16_t flow) {
@@ -117,13 +113,12 @@ void SaveInletExhaust (PGN_65270_t* data) {
 	float32_t f = (float32_t)data->AirInlet_P * AIR_P_WEIGHT;
 	Data[5] = (int32_t)(f * 1000.0); // 0 to 500 kPa (2 kPa/bit)
 	f = (float32_t)data->Manifold_1_T * AIR_T_WEIGHT;
-	Data[6] = (int32_t)(f * 1000.0); // -40 to 210 deg C (1 deg C/bit)
+	Data[6] = (int32_t)((f - AIR_T_OFFSET) * 1000.0); // -40 to 210 deg C (1 deg C/bit)
 }
 
 void SaveEngineHours (PGN_65253_t* data) {
 	float32_t h = (float32_t)data->TotalHours * ENGINE_H_WEIGHT;
 	Data[8] = (int32_t)(h); // Total Hours
-	//Data[8] = 246900; // ToDo:
 }
 
 #if 0
