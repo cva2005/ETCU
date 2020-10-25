@@ -23,6 +23,7 @@
 #define FUEL_DENSITY		0.850f // плотность ДТ
 #define ENGINE_H_WEIGHT		0.05f // 0.05 hr/bit
 #define OIL_C_OFFSET		40
+#define TORQUE_OFFSET		125
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);

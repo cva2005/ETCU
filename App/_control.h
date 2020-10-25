@@ -2,14 +2,15 @@
 #define APP__CONTROL_H_
 #include "_signals.h"
 #include "arm_math.h"
+#include "ecu.h"
 
 #ifdef ECU_TSC1_CONTROL
-#define SPEED_LOOP_TIME		1000 // цикличность передачи сигнала скорости, мс
+#define SPEED_LOOP_TIME		TSC1_TX_RATE // цикличность передачи сигнала управлени€
 #else
 #define SPEED_LOOP_TIME		100 // дискретизаци€ по времени контура регулировани€ оборотов, мс
 #endif
 #define ERROR_CODE					0x7FFFFFFF
-#define DEF_KEY_DELAY				1500	//јнтидребезг на кнопки
+#define DEF_KEY_DELAY				500	//јнтидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мј
 #define DEF_MAX_SERVO_POSITION		5000000	//максимальное положение сревопривода,
 #define DEF_MAX_ENGINE_SPEED		(735 * 1000) //максимальные обороты электромотора
@@ -24,6 +25,7 @@
 #define DEF_SPEED_TIME_HYDRO		10000	//¬рем€ выхода на полную мощность гидростанции
 #define DEF_TIMOUT_ENGINE_ROTATE	20000 	//¬рем€за которое должен выйти на заданные обороты двигатель
 #define DEF_TIMOUT_SET_TORQUE		20000 	//¬рем€ установки заданного крут€щего моента
+#define STARTER_MAX_TIME			10000	//ћаксимальное врем€ работы стартера в теплом помещении
 
 #define OPR_STOP_TEST		0
 #define OPR_START_TEST		1
@@ -91,6 +93,12 @@ typedef struct {
 #define ETCU_AI_TEMP6		26
 #define ETCU_AI_TEMP7		27
 #define ETCU_AI_TEMP8		28
+
+#ifdef SAFE_MODE
+#define SAFE	safe < SAFE_MAX_VAL
+#else
+#define SAFE	1
+#endif
 
 void control_init (void); //инициализаци€ системы управлени€
 void control_step (void); //1 шаг алгоритма управлени€

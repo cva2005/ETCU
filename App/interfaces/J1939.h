@@ -7,10 +7,25 @@
 typedef void (*J1939rxFun_t) (char *data, uint8_t len, uint32_t adr);
 extern J1939rxFun_t J1939rxFun;
 
+/*
+ * After power on, a node should internally set the “availability bits”
+ * of received parameters as not available and operate with default
+ * values until valid data is received.
+ * When transmitting, undefined bytes should be sent as
+ * 255 (FF16) and undefined bits should be sent as 1.
+ */
 #pragma pack(1)
 typedef struct J1939_ID {
 	unsigned SA:	 8;
-	unsigned PGN:	18;
+	union {
+		struct {
+			unsigned PS:		 8;
+			unsigned PF:		 8;
+			unsigned DP:		 1;
+			unsigned EDP:		 1;
+		} FIELD;
+		unsigned FULL:	18;
+	} PGN;
 	unsigned P:		 3;
 	unsigned R:		 3;
 } J1939_ID_t;
@@ -40,6 +55,34 @@ typedef struct PGN_00000 { // TSC1 Torque Speed Control 1
     uint8_t  MessageChecksum: 	4; 	// 4207 Message Checksum
 } PGN_00000_t;
 #pragma pack()
+
+//#define TSC1_CHECKSUM
+#define TSC1_TX_RATE		100
+#if		TSC1_TX_RATE == 1000
+	#define VAL_TX_RATE		0
+#elif	TSC1_TX_RATE == 750
+	#define VAL_TX_RATE		1
+#elif	TSC1_TX_RATE == 500
+	#define VAL_TX_RATE		2
+#elif	TSC1_TX_RATE == 250
+	#define VAL_TX_RATE		3
+#elif	TSC1_TX_RATE == 100
+	#define VAL_TX_RATE		4
+#elif	TSC1_TX_RATE == 50
+	#define VAL_TX_RATE		5
+#elif	TSC1_TX_RATE == 17	// 20 ms
+	#define VAL_TX_RATE		6
+#elif	TSC1_TX_RATE == 8	// 10 ms
+	#define VAL_TX_RATE		7
+#else
+	#error Rate Not Defined!
+#endif
+
+#define PURP_OPER			0
+#define PURP_CRUISE			1
+#define PURP_PTO			2
+#define MESS_CNT_MAX		7
+#define NO_CHECK			0x0f
 
 /*
 	Engine Override Control Mode
@@ -283,7 +326,7 @@ typedef struct PGN_65276 { // Dash Display (1000 ìñåê)
 #pragma pack()
 
 #define J1939_ERR_TIME		500 // , ìñ
-#define PGN_00000 00000 << 8
+#define PGN_60928 60928 << 8
 #define PGN_61443 61443 << 8
 #define PGN_61444 61444 << 8
 #define PGN_61450 61450 << 8
@@ -295,8 +338,11 @@ typedef struct PGN_65276 { // Dash Display (1000 ìñåê)
 #define PGN_65266 65266 << 8
 #define PGN_65270 65270 << 8
 #define PGN_65276 65276 << 8
-#define TSC1_PGN		00000
-#define ENH_PGN			65253
+#define TSC1			00000
+#define ENG_HOURS		65253
+#define ADDR_CLAIM		59904
+#define ENG_GAS			61450
+
 // Source Address ID
 #define Engine1				0
 #define Engine2				1
@@ -309,10 +355,25 @@ typedef struct PGN_65276 { // Dash Display (1000 ìñåê)
 #define AxleSteering		8
 #define AxleDrive1			9
 #define AxleDrive2			10
+#define SRC_ADDR			Transmission1
+
+#define E_HOURS_TIME		1000 // EngineHours request interval, ms
+#define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms
+#define ADDR_GLOBAL			0xff
+#define ADDR_NOT_CLAIMED 	0xfe
+#define ADD_NULL			0xef
+
+#define PRIORITY_HIGH 		0
+#define PRIORITY_TSC1 		3
+#define PRIORITY_DEFAULT	6
+#define PRIORITY_LOW		7
 
 void canJ1939_init(void);
 void J1939_step (void);
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd);
 bool J1939_error (void);
+uint8_t GetEngineHours (void);
+uint8_t GetAirFlow (void);
+uint8_t AddrRequest (void);
 
 #endif // #ifndef J1939_H

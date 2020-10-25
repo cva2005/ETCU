@@ -62,7 +62,7 @@ uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
 	if (sp_w) TSC1state = true;
 	else TSC1state = false;
-	int8_t tq_b = (int8_t)(trq * TORQUE_LIM);
+	int8_t tq_b = (int8_t)(trq * TORQUE_LIM) + TORQUE_OFFSET;
 	return TorqueSpeedControl(tq_b, sp_w);
 }
 
@@ -117,8 +117,7 @@ void SaveInletExhaust (PGN_65270_t* data) {
 }
 
 void SaveEngineHours (PGN_65253_t* data) {
-	float32_t h = (float32_t)data->TotalHours * ENGINE_H_WEIGHT;
-	Data[8] = (int32_t)(h); // Total Hours
+	Data[8] = data->TotalHours; // Total Hours
 }
 
 #if 0

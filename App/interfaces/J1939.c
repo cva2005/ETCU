@@ -4,22 +4,27 @@
 #include "ecu.h"
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
-static stime_t err_time;
+static stime_t err_time, eh_time, ea_time;
 static bool time_out;
+static uint8_t mess_cnt;
+static bool addr_claimed = false;
 
 void canJ1939_init (void) {
-	//can_1_set_filter32(PGN_00000, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_61444, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_65247, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_65276, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	can_1_set_filter32(PGN_60928, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_61450, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65253, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65262, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65263, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65266, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65270, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	//can_1_set_filter32(PGN_65276, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	err_time = timers_get_finish_time(J1939_ERR_TIME);
+	eh_time = timers_get_finish_time(E_HOURS_TIME);
+	ea_time = timers_get_finish_time(E_AIR_TIME);
 }
 
 void J1939_step (void) {
@@ -39,11 +44,28 @@ void J1939_step (void) {
 	if (timers_get_time_left(err_time) == 0) {
 		time_out = true;
 	}
+	if (timers_get_time_left(eh_time) == 0) {
+		eh_time = timers_get_finish_time(E_HOURS_TIME);
+		if (addr_claimed) {
+			GetEngineHours();
+		} else {
+			AddrRequest();
+		}
+	}
+	if (timers_get_time_left(ea_time) == 0) {
+		if (addr_claimed) {
+			if (GetAirFlow())
+				ea_time = timers_get_finish_time(E_AIR_TIME);
+		}
+	}
 }
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
-	switch (id->PGN) {
-	case 61450: // Electronic Engine Controller 1 (50 мсек)
+	switch (id->PGN.FULL) {
+	case 60928: // Address Claimed (по запросу)
+		if (id->PGN.FIELD.PS == SRC_ADDR) addr_claimed = true;
+		break;
+	case 61450: // Engine Gas Flow Rate (по запросу!)
 		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
 		break;
 	case 65253: // Engine Hours, Revolutions (по запросу)
@@ -85,18 +107,47 @@ uint8_t j1939Transmit (uint8_t* data, uint8_t len, J1939_ID_t id) {
 	return can_1_write_tx_data(*((uint32_t *)&id), len, data);
 }
 
+uint8_t AddrRequest (void) {
+	J1939_ID_t id;
+	id.P = PRIORITY_DEFAULT; // Priority
+	id.PGN.FULL = ADDR_CLAIM;
+	id.PGN.FIELD.PS = ADDR_GLOBAL;
+	id.SA = SRC_ADDR;
+	return j1939Transmit (NULL, 0, id);
+}
+
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
-	PGN_00000_t png; J1939_ID_t id; uint8_t cc;
-	for (cc = 0; cc < sizeof(png); cc++) *((uint8_t *)&png + cc) = 0;
-	id.P = 03; // Priority
-	id.R = Engine1; // Should always be set to Engine1 when transmitting messages
-	id.PGN = TSC1_PGN; // Torque/Speed Control 1
-	id.SA = Transmission1;
+	if (!addr_claimed) return ERROR;
+	PGN_00000_t pgn; J1939_ID_t id; uint8_t cc;
+	for (cc = 0; cc < sizeof(pgn); cc++) *((uint8_t *)&pgn + cc) = 0xff;
+	id.P = PRIORITY_TSC1; // Priority
+	id.PGN.FULL = TSC1; // Torque/Speed Control 1
+	id.SA = SRC_ADDR;
 	if (spd) {
-		png.ControlMode = SpeedControl;
-		png.RequestedSpeed = spd;
-		png.RequestedTorque = trq;
-		png.ModePriority = HighestPriority;
+		pgn.ControlMode = SpeedControl;
+		pgn.RequestedSpeed = spd;
+		pgn.RequestedTorque = trq;
+		pgn.ModePriority = HighestPriority;
+		pgn.TransmissionRate = VAL_TX_RATE;
+		pgn.ControlPurpose = PURP_OPER;
+		if (++mess_cnt > MESS_CNT_MAX) mess_cnt = 0;
+		pgn.MessageCounter = mess_cnt;
+#ifdef	TSC1_CHECKSUM
+		int checksum = 0, i;
+		for (i = 0; i < (sizeof(pgn) - 1); i++) {
+			checksum += ((uint8_t *)&pgn)[i];
+		}
+		checksum += mess_cnt;
+		for (i = 0; i < sizeof(id); i++) {
+			checksum += ((uint8_t *)&id)[i];
+		}
+		pgn.MessageChecksum = (((checksum >> 6) & 0x03) + (checksum >>3) + checksum) & 0x07;
+#else
+		//pgn.MessageChecksum = NO_CHECK;
+		for (int i = 3; i < sizeof(pgn); i++) {
+			((uint8_t *)&pgn)[i] = 0xff;
+		}
+#endif
 		if (trq <= 0) {
 			cc = DisDrivelineNonLockup;
 		} else if (trq < 25) {
@@ -106,64 +157,29 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		} else {
 			cc = EnDrivelineInLockup1;
 		}
-		png.ControlConditions = cc; // ToDo: зависит от нагрузки
+		pgn.ControlConditions = cc; // Условия регулирования скорости (зависит от момента)
 	} // else png.ControlMode = OverrideDis;
-	return j1939Transmit ((uint8_t *)&png, sizeof(PGN_00000_t), id);
+	return j1939Transmit((uint8_t *)&pgn, sizeof(PGN_00000_t), id);
 }
 
 uint8_t GetEngineHours (void) {
+	if (!addr_claimed) return ERROR;
 	J1939_ID_t id;
-	id.P = 03; // Priority
-	id.R = Engine1;
-	id.PGN = ENH_PGN; // Engine Hours
-	id.SA = Engine2;
-	return j1939Transmit ((uint8_t *)NULL, 0, id);
+	id.P = PRIORITY_LOW;
+	id.PGN.FULL = ENG_HOURS; // Engine Hours
+	id.SA = SRC_ADDR;
+	return j1939Transmit((uint8_t *)NULL, 0, id);
+}
+
+uint8_t GetAirFlow (void) {
+	if (!addr_claimed) return ERROR;
+	J1939_ID_t id;
+	id.P = PRIORITY_DEFAULT;
+	id.PGN.FULL = ENG_GAS; // Engine Gas Flow Rate
+	id.SA = SRC_ADDR;
+	return j1939Transmit((uint8_t *)NULL, 0, id);
 }
 
 bool J1939_error (void) {
 	return time_out;
 }
-
-#if 0
-bool j1939PeerToPeer (uint32_t lPGN) {
-	if (lPGN > 0 && lPGN <= 0xEFFF)
-		return true;
-	if (lPGN > 0x10000 && lPGN <= 0x1EFFF)
-		return true;
-	return false;
-}
-
-uint8_t j1939Transmit (uint32_t lPGN, uint8_t nPriority, uint8_t nSrcAddr,
-					   uint8_t nDestAddr, uint8_t* nData, uint8_t nDataLen) {
-	uint32_t lID = ((uint32_t)nPriority << 26) + (lPGN << 8) + (uint32_t)nSrcAddr;
-
-	// If PGN represents a peer-to-peer, add destination address to the ID
-	if (j1939PeerToPeer(lPGN) == true) {
-		lID = lID & 0xFFFF00FF;
-		lID = lID | ((uint32_t)nDestAddr << 8);
-	}
-	return canTransmit(lID, nDataLen, nData);
-}
-
-uint8_t j1939Receive (uint32_t* lPGN, uint8_t* nPriority, uint8_t* nSrcAddr,
-					  uint8_t* nDestAddr, uint8_t* nData, uint8_t* nDataLen) {
-	uint8_t nRetCode = 1;
-	uint32_t lID;
-	*nSrcAddr = 255;
-	*nDestAddr = 255;
-	if (canReceive(&lID, nData, nDataLen) == 0) {
-		uint8_t lPriority = lID & 0x1C000000;
-		*nPriority = (uint32_t)(lPriority >> 26);
-		 *lPGN = lID & 0x00FFFF00;
-		 *lPGN = *lPGN >> 8;
-		 lID = lID & 0x000000FF;
-		 *nSrcAddr = (uint32_t)lID;
-		 if (j1939PeerToPeer(*lPGN) == true) {
-			 *nDestAddr = (uint32_t)(*lPGN & 0xFF);
-			 *lPGN = *lPGN & 0x01FF00;
-		 }
-		 nRetCode = 0;
-	 }
-	 return nRetCode;
-}
-#endif

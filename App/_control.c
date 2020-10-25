@@ -31,7 +31,6 @@
 #include "p_mm370.h"
 #include "p_745_3829.h"
 #include "servo.h"
-#include "ecu.h"
 #include "smog.h"
 #include "agm501.h"
 
@@ -41,7 +40,6 @@ extern sg_t sg_st;					//состояние сигналов
 static state_t state;
 static cmd_t cmd;
 static timeout_t time;
-static timeout_t t_corr;
 static error_t error;
 static stime_t cntrl_M_time; // таймер дискретизации регулятора момента
 arm_pid_instance_f32 Speed_PID;
@@ -59,7 +57,11 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
 #ifdef ECU_CONTROL
-static float32_t corr_max;
+static stime_t cool_time;
+#ifdef PID_ADAPTIVE
+	static float32_t corr_max;
+	static timeout_t t_corr;
+#endif
 #ifdef MODEL_OBJ
 	#define SPEED_KP			0.20f
 	#define SPEED_KI			0.023f
@@ -285,7 +287,6 @@ void sensors_config (void) {
 //----------------------------------------------------------------------------------------------
 void control_init(void) {
 	uint32_t crcj;
-
 	if (!flash_data_rd(&sig_cfg[0].byte[0], sizeof(sig_cfg), 0))
 		signals_start_cfg(); //прочитать таблицу описания
 	if (!flash_data_rd((int8_t*) (&sg_st.pc.cfg), sizeof(sg_st.pc.cfg), 1))
@@ -316,6 +317,7 @@ void control_init(void) {
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
 #endif
 #ifdef ECU_CONTROL
+	cool_time = timers_get_finish_time(60000);
 	mu6u_init(CH2, ADR_MU6U);
 #endif
 #if ECU_CONTROL
@@ -381,7 +383,16 @@ void read_devices (void) {
 	sg_st.etcu.i.a[ETCU_AI_P_OIL]=p_mm370_get_val(14);//adc_get_calc(14,1,0,3,3);//adc_sens_get_val(14);
 #define T_COOLANT_HI 		80000UL
 #define COOLANT_FAN_HYST 	10000UL
+#if ECU_CONTROL
+	int32_t t_cool;
+	if (timers_get_time_left(cool_time) == 0) {
+		t_cool = st(AO_PC_1MV8A2);
+	} else {
+		t_cool = T_COOLANT_HI + COOLANT_FAN_HYST;
+	}
+#else
  	int32_t t_cool = st(AI_T_COOLANT_OUT);
+#endif
  	if (t_cool > T_COOLANT_HI) {
  		set(DO_COOLANT_FAN, ON);
  	} else if (t_cool < (T_COOLANT_HI - COOLANT_FAN_HYST)) {
@@ -421,9 +432,13 @@ void read_devices (void) {
  	else sg_st.etcu.i.a[ETCU_AI_TEMP8]=ds18b20_get_temp(8);
 #endif
 #if ECU_CONTROL
-	if (mv8a_err_link()) for (i = 0; i < MV8A_INP; i++)
-		set(AO_PC_1MV8A1 + i, ERROR_CODE);
-	else for (i = 0; i < MV8A_INP; i++)
+	if (mv8a_err_link()) {
+		for (i = 0; i < MV8A_INP; i++)
+			set(AO_PC_1MV8A1 + i, ERROR_CODE);
+		error.bit.no_fc = 1; // ToDo: описать на ВУ
+		state.step = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
+	} else for (i = 0; i < MV8A_INP; i++)
 		set(AO_PC_1MV8A1 + i, mv8a_read_res(i));
 	if (agm_err_link()) for (i = 0; i < AGM_CH; i++)
 		set(AO_PC_AGM_D01 + i, ERROR_CODE);
@@ -433,9 +448,15 @@ void read_devices (void) {
  		set(AO_PC_SMG_D01 + i, ERROR_CODE);
   	else for (i = 0; i < SMG_CH; i++)
  		set(AO_PC_SMG_D01 + i, smog_read_res(i));
- 	if (J1939_error()) for (i = 0; i < ECU_CH; i++)
-		set(AO_PC_ECU_01 + i, ERROR_CODE);
- 	else for (i = 0; i < ECU_CH; i++)
+ 	if (J1939_error()) {
+ 		for (i = 0; i < ECU_CH; i++)
+ 			set(AO_PC_ECU_01 + i, ERROR_CODE);
+#ifndef NO_ECU
+		error.bit.no_cdu = 1; // ToDo: описать на ВУ
+		state.step = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
+#endif
+ 	} else for (i = 0; i < ECU_CH; i++)
  		set(AO_PC_ECU_01 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_Q_BCU, ERROR_CODE);
  	else set(AO_PC_Q_BCU, bcu_get_Q()); // расход л/мин);
@@ -596,15 +617,6 @@ void read_keys (void) {
 		error.dword = 0;
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
-#if 0
-	if (st(ENGINE_KEY_TASK)) {
-		state.opr = OPR_KEY_ON;
-		cmd.opr = OPR_KEY_ON;
-		set(ENGINE_RELAY, ON);
-		set(DO_OIL_PUMP, ON);
-		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
-	}
-#endif
 #if ECU_CONTROL
 	if (st(ENGINE_KEY_TASK)) { // Вкл. зажигания
 		if (!st(ENGINE_RELAY)) {
@@ -623,6 +635,11 @@ void read_keys (void) {
 void work_step (void) {
 	int32_t val;
 
+#if ECU_CONTROL
+	if (cmd.opr == OPR_KEY_ON) {
+		EcuPedControl(0);
+	}
+#endif
 	if (st(SAVE_PID_VAL)) {
 		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
 		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
@@ -657,7 +674,7 @@ void work_step (void) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
 				state.step = ST_WAIT_ENGINE_START;
-				time.alg = timers_get_finish_time(15000);
+				time.alg = timers_get_finish_time(STARTER_MAX_TIME);
 #ifdef MODEL_OBJ
 				init_obj(); // нач. установка ОР1, ОР2
 				Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
@@ -826,14 +843,19 @@ engine_start:
  * ИНДИКАЦИЯ ПК
  */
 void set_indication (void) {
+	//датчик момента
 	int32_t val = st(AI_TORQUE);
 	if (val < 0) val *= -1;
 	set(AO_PC_TORQUE, val);
 	set(AO_PC_POWER, st(AI_POWER));
-	//датчик момента
+	//датчик скорости
 	if ((state.opr == OPR_START_TEST) && (st(DI_PC_HOT_TEST) == OFF)) {
 #ifdef NO_FREQ_DRIVER
+#if ECU_CONTROL
+		set(AO_PC_ROTATE, st(AI_ROTATION_SPEED));
+#else
 		set(AO_PC_ROTATE, st(AI_PC_ROTATE));
+#endif
 #else
 		//set(AO_PC_ROTATE, st(AI_FC_FREQ));
 		set(AO_PC_ROTATE, st(AI_ROTATION_SPEED));
@@ -1063,7 +1085,7 @@ void init_PID (void) {
 }
 
 #if ECU_CONTROL
-	#define TORQUE_MAX			800.0f // Нм
+	#define TORQUE_MAX			1000.0f // Нм
 #else
 	#define TORQUE_MAX			400.0f // Нм
 #endif
@@ -1099,7 +1121,7 @@ void Speed_loop (void) {
 		torq_corr = (pi_out / TORQUE_MAX);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 #ifdef ECU_TSC1_CONTROL
-		EcuTSC1Control(task, torq_corr);
+		if (SAFE) EcuTSC1Control(task, torq_corr);
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
@@ -1123,6 +1145,7 @@ void Speed_loop (void) {
 #else
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
 			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + torq_corr);
+			//Speed_PID.Ki = SpeedKi;
 #endif
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
@@ -1130,8 +1153,7 @@ void Speed_loop (void) {
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #ifndef ECU_TSC1_CONTROL
 #if ECU_PED_CONTROL
-		if (safe < SAFE_MAX_VAL)
-			EcuPedControl(pi_out);
+		if (SAFE) EcuPedControl(pi_out);
 #elif SPSH_20_CONTROL
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);
@@ -1159,25 +1181,46 @@ void Speed_loop (void) {
 #define PWM_SCALE			100000U
 #define PWM_FSCALE			100000.0f
 #define PWM_PERCENT			(PWM_SCALE / 100000)
-#define SCALE_DIV			4U // разбивка диапазона нагнетания между насосом и клапаном 1:4
-#define VALVE_DIV			8U
-#define VALVE_NULL			(PWM_SCALE / VALVE_DIV) // начальный угол закрытия клапана 20...30%
-#define PERCENT_FACTOR		0.008f
-#define TFILTER_TAU			0.2f
-#define VALVE_MIN			0.10f
-#define PWM_V_MIN			(VALVE_MIN * PWM_FSCALE)
-#define VALVE_MAX			0.80f
-#define PWM_V_MAX			(VALVE_MAX * PWM_FSCALE)
-#define PUMP_MIN			0.20f
-#define PWM_P_MIN			(PUMP_MIN * PWM_FSCALE)
-#define PUMP_MAX			0.80f
-#define PWM_P_MAX			(PUMP_MAX * PWM_FSCALE)
-
+#ifdef ECU_CONTROL
+#ifdef MODEL_OBJ
+	#define TORQUE_SCALE	76.923f
+#else
+	#define TORQUE_SCALE	76.923f
+#endif // MODEL_OBJ
+	#define VALVE_DIV			PWM_SCALE
+	#define PERCENT_FACTOR		0.008f
+	#define TFILTER_TAU			0.2f
+	#define VALVE_NULL			0.00f
+	#define PWM_V_MIN			(VALVE_NULL * PWM_FSCALE)
+	#define VALVE_MAX			1U
+	#define PWM_V_MAX			(VALVE_MAX * PWM_SCALE)
+	#define PUMP_NULL			0.00f
+	#define PUMP_MIN			0.30f
+	#define PUMP_MUL			1.5f
+	#define PWM_P_MIN			(PUMP_MIN * PWM_FSCALE)
+	#define PUMP_MAX			1U
+	#define PWM_P_MAX			(PUMP_MAX * PWM_SCALE)
+#else
 #ifdef MODEL_OBJ
 	#define TORQUE_SCALE	153.846f
 #else
 	#define TORQUE_SCALE	153.846f
 #endif // MODEL_OBJ
+	#define SCALE_DIV			4U // разбивка диапазона нагнетания между насосом и клапаном 1:4
+	#define VALVE_DIV			8U
+	#define VALVE_NULL			(PWM_SCALE / VALVE_DIV) // начальный угол закрытия клапана 20...30%
+	#define PERCENT_FACTOR		0.008f
+	#define TFILTER_TAU			0.2f
+	#define VALVE_MIN			0.10f
+	#define PWM_V_MIN			(VALVE_MIN * PWM_FSCALE)
+	#define VALVE_MAX			0.80f
+	#define PWM_V_MAX			(VALVE_MAX * PWM_FSCALE)
+	#define PUMP_MIN			0.20f
+	#define PWM_P_MIN			(PUMP_MIN * PWM_FSCALE)
+	#define PUMP_MAX			0.80f
+	#define PWM_P_MAX			(PUMP_MAX * PWM_FSCALE)
+#endif // ECU_CONTROL
+
 /*
  * Управление контуром крутящего момента
  */
@@ -1217,12 +1260,28 @@ void Torque_loop (torq_val_t val) {
 			if (pi_out < 0) pi_out = 0;
 			pi_out *= TORQUE_SCALE;
 			if (pi_out > PWM_FSCALE) pi_out = PWM_FSCALE;
+#ifdef ECU_CONTROL
+			/*
+			 * Алгоритм повышения нагрузки начать с увеличения производительности
+			 * насоса 0-30%, затем параллельно насос 30-100%, а клапан 0-100%
+			 */
+			pwm1_out = (uint32_t)pi_out; // Гидро Насос
+			if (pwm1_out > PWM_P_MAX) pwm1_out = PWM_P_MAX;
+			if (pi_out < PWM_P_MIN) { // 0-30%
+				pwm2_out = 0; // Гидро Клапан
+			} else { // 30-100%
+				pi_out -= PWM_P_MIN;
+				pwm2_out = (uint32_t)(pi_out * PUMP_MUL);
+			}
+			if (pwm2_out > PWM_V_MAX) pwm2_out = PWM_V_MAX;
+#else
 			pwm_flo = (uint32_t)(PWM_P_MIN + pi_out * (PUMP_MAX - PUMP_MIN)); // Гидро Насос
 			if (pwm_flo > PWM_P_MAX) pwm_flo = PWM_P_MAX;
 			pwm1_out = (uint32_t)pwm_flo;
 			pwm_flo = (PWM_V_MIN + pi_out * (VALVE_MAX - VALVE_MIN)); // Гидро Клапан
 			if (pwm_flo > PWM_V_MAX) pwm_flo = PWM_V_MAX;
 			pwm2_out = (uint32_t)pwm_flo;
+#endif
 		}
 		set(AO_HYDROSTATION, pwm1_out);
 		set(AO_VALVE_ENABLE, pwm2_out);
