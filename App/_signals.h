@@ -438,7 +438,7 @@ typedef struct
 		struct
 			{
 			uint8_t d;
-			int32_t a[5];
+			int32_t a[AO_PC_TORQUE-AI_PC_TORQUE];
 			}i;
 		struct
 			{

@@ -4,9 +4,10 @@
 #include "J1939.h"
 
 #define ECU_CH				10
-#define DAC_OUT_MIN			65  // минимальное значение выхода: 5В * 13%
+#define DAC_OUT_NULL		65  // минимальное значение выхода: 5В * 13%
+#define DAC_OUT_MIN			120  // значение выхода в режиме ХХ: 5В * 25%
 #define DAC_OUT_MAX			445 // максимальное значение выхода: 5В * 89%
-#define DAC_OUT_DIFF		(DAC_OUT_MAX - DAC_OUT_MIN)
+#define DAC_OUT_DIFF		(DAC_OUT_MAX - DAC_OUT_NULL)
 #define DAC_FACT			0.0456f
 #define SPEED_RESOL			0.125f // rpm
 #define TORQUE_LIM			125.0f // %
@@ -27,7 +28,7 @@
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
-void EcuPedControl (float32_t out);
+void EcuPedControl (float32_t out, bool start);
 void SavePedalPosition (int8_t th);
 void SaveEngineTemp (PGN_65262_t* data);
 void SaveEngineLP (PGN_65263_t* data);

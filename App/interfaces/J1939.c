@@ -4,10 +4,9 @@
 #include "ecu.h"
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
-static stime_t err_time, eh_time, ea_time;
+static stime_t err_time, eh_time;
 static bool time_out;
 static uint8_t mess_cnt;
-static bool addr_claimed = false;
 
 void canJ1939_init (void) {
 	//can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -15,8 +14,8 @@ void canJ1939_init (void) {
 	//can_1_set_filter32(PGN_65243, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_65247, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	//can_1_set_filter32(PGN_65276, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_60928, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
-	can_1_set_filter32(PGN_61450, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_60928, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
+	//can_1_set_filter32(PGN_61450, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65253, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65262, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	can_1_set_filter32(PGN_65263, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
@@ -24,7 +23,6 @@ void canJ1939_init (void) {
 	can_1_set_filter32(PGN_65270, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);
 	err_time = timers_get_finish_time(J1939_ERR_TIME);
 	eh_time = timers_get_finish_time(E_HOURS_TIME);
-	ea_time = timers_get_finish_time(E_AIR_TIME);
 }
 
 void J1939_step (void) {
@@ -46,28 +44,15 @@ void J1939_step (void) {
 	}
 	if (timers_get_time_left(eh_time) == 0) {
 		eh_time = timers_get_finish_time(E_HOURS_TIME);
-		if (addr_claimed) {
-			GetEngineHours();
-		} else {
-			AddrRequest();
-		}
-	}
-	if (timers_get_time_left(ea_time) == 0) {
-		if (addr_claimed) {
-			if (GetAirFlow())
-				ea_time = timers_get_finish_time(E_AIR_TIME);
-		}
+		HoursRequest();
 	}
 }
 
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	switch (id->PGN.FULL) {
-	case 60928: // Address Claimed (по запросу)
-		if (id->PGN.FIELD.PS == SRC_ADDR) addr_claimed = true;
-		break;
-	case 61450: // Engine Gas Flow Rate (по запросу!)
+	/*case 61450: // Engine Gas Flow Rate (по запросу?)
 		SaveAirFlow(((PGN_61450_t *)data)->AirMassFlow);
-		break;
+		break;*/
 	case 65253: // Engine Hours, Revolutions (по запросу)
 		SaveEngineHours((PGN_65253_t *)data);
 		break;
@@ -107,17 +92,17 @@ uint8_t j1939Transmit (uint8_t* data, uint8_t len, J1939_ID_t id) {
 	return can_1_write_tx_data(*((uint32_t *)&id), len, data);
 }
 
-uint8_t AddrRequest (void) {
+uint8_t HoursRequest (void) {
 	J1939_ID_t id;
 	id.P = PRIORITY_DEFAULT; // Priority
-	id.PGN.FULL = ADDR_CLAIM;
-	id.PGN.FIELD.PS = ADDR_GLOBAL;
-	id.SA = SRC_ADDR;
-	return j1939Transmit (NULL, 0, id);
+	id.PGN.FULL = ADDR_CL_REQ;
+	//id.PGN.FIELD.PS = ADDR_HOURS;
+	id.SA = ADDR_HOURS;
+	uint32_t req_pgn = ENG_HOURS;
+	return j1939Transmit ((uint8_t*)&req_pgn, 3, id);
 }
 
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
-	if (!addr_claimed) return ERROR;
 	PGN_00000_t pgn; J1939_ID_t id; uint8_t cc;
 	for (cc = 0; cc < sizeof(pgn); cc++) *((uint8_t *)&pgn + cc) = 0xff;
 	id.P = PRIORITY_TSC1; // Priority
@@ -160,24 +145,6 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		pgn.ControlConditions = cc; // Условия регулирования скорости (зависит от момента)
 	} // else png.ControlMode = OverrideDis;
 	return j1939Transmit((uint8_t *)&pgn, sizeof(PGN_00000_t), id);
-}
-
-uint8_t GetEngineHours (void) {
-	if (!addr_claimed) return ERROR;
-	J1939_ID_t id;
-	id.P = PRIORITY_LOW;
-	id.PGN.FULL = ENG_HOURS; // Engine Hours
-	id.SA = SRC_ADDR;
-	return j1939Transmit((uint8_t *)NULL, 0, id);
-}
-
-uint8_t GetAirFlow (void) {
-	if (!addr_claimed) return ERROR;
-	J1939_ID_t id;
-	id.P = PRIORITY_DEFAULT;
-	id.PGN.FULL = ENG_GAS; // Engine Gas Flow Rate
-	id.SA = SRC_ADDR;
-	return j1939Transmit((uint8_t *)NULL, 0, id);
 }
 
 bool J1939_error (void) {

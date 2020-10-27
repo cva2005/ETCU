@@ -340,7 +340,8 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define PGN_65276 65276 << 8
 #define TSC1			00000
 #define ENG_HOURS		65253
-#define ADDR_CLAIM		59904
+#define ADDR_CL_REQ		59904
+#define ADDR_CL_RES		60928
 #define ENG_GAS			61450
 
 // Source Address ID
@@ -361,7 +362,8 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms
 #define ADDR_GLOBAL			0xff
 #define ADDR_NOT_CLAIMED 	0xfe
-#define ADD_NULL			0xef
+#define ADDR_NULL			0xef
+#define ADDR_HOURS			0x21
 
 #define PRIORITY_HIGH 		0
 #define PRIORITY_TSC1 		3
@@ -372,8 +374,6 @@ void canJ1939_init(void);
 void J1939_step (void);
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd);
 bool J1939_error (void);
-uint8_t GetEngineHours (void);
-uint8_t GetAirFlow (void);
-uint8_t AddrRequest (void);
+uint8_t HoursRequest (void);
 
 #endif // #ifndef J1939_H

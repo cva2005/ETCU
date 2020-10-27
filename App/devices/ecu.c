@@ -69,11 +69,14 @@ uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 bool ControlState (void) {
 	return TSC1state;
 }
-void EcuPedControl (float32_t out) {
-	uint16_t data = DAC_OUT_MIN + (uint16_t)(out * DAC_FACT);
+void EcuPedControl (float32_t out, bool start) {
+	uint16_t out_min;
+	if (start) out_min = DAC_OUT_MIN;
+	else out_min = DAC_OUT_NULL;
+	uint16_t data = out_min + (uint16_t)(out * DAC_FACT);
 	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX;
 	mu6u_set_out(data); // уст. выходы DAC0, DAC1
-	PedalPos = (data - DAC_OUT_MIN) * (100000 / DAC_OUT_DIFF); // положение сервопривода %
+	PedalPos = (data - DAC_OUT_NULL) * (100000 / DAC_OUT_DIFF); // положение сервопривода %
 }
 
 uint8_t EcuPedError (void) {

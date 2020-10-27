@@ -37,6 +37,7 @@
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
 
+static float32_t curr_out = 0;
 static state_t state;
 static cmd_t cmd;
 static timeout_t time;
@@ -448,15 +449,9 @@ void read_devices (void) {
  		set(AO_PC_SMG_D01 + i, ERROR_CODE);
   	else for (i = 0; i < SMG_CH; i++)
  		set(AO_PC_SMG_D01 + i, smog_read_res(i));
- 	if (J1939_error()) {
- 		for (i = 0; i < ECU_CH; i++)
- 			set(AO_PC_ECU_01 + i, ERROR_CODE);
-#ifndef NO_ECU
-		error.bit.no_cdu = 1; // ToDo: описать на ВУ
-		state.step = ST_STOP_ERR;
-		cmd.opr = OPR_STOP_TEST;
-#endif
- 	} else for (i = 0; i < ECU_CH; i++)
+ 	if (J1939_error()) for (i = 0; i < ECU_CH; i++)
+ 		set(AO_PC_ECU_01 + i, ERROR_CODE);
+ 	else for (i = 0; i < ECU_CH; i++)
  		set(AO_PC_ECU_01 + i, ecu_get_data(i));
  	if (bcu_err_link()) set(AO_PC_Q_BCU, ERROR_CODE);
  	else set(AO_PC_Q_BCU, bcu_get_Q()); // расход л/мин);
@@ -603,12 +598,11 @@ void update_devices (void) {
 //----------------------------------------------------------------------------------------------
 void read_keys (void) {
 	uint32_t time_all;
-
 	if (timers_get_time_left(time.key_delay) != 0) return;
 	if (st(DI_PC_TEST_START)) {
 		cmd.opr = OPR_START_TEST;
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
-		time_all = st(AI_PC_DURATION);
+		//time_all = st(AI_PC_DURATION);
 		time_all = st(AI_PC_DURATION)*60*1000;
 		time.all  =timers_get_finish_time(time_all);
 	}
@@ -637,7 +631,7 @@ void work_step (void) {
 
 #if ECU_CONTROL
 	if (cmd.opr == OPR_KEY_ON) {
-		EcuPedControl(0);
+		EcuPedControl(0, false);
 	}
 #endif
 	if (st(SAVE_PID_VAL)) {
@@ -677,7 +671,7 @@ void work_step (void) {
 				time.alg = timers_get_finish_time(STARTER_MAX_TIME);
 #ifdef MODEL_OBJ
 				init_obj(); // нач. установка ОР1, ОР2
-				Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
+				Speed_Out = st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
 #endif
 			}
 #else // !ECU_CONTROL
@@ -726,7 +720,7 @@ void work_step (void) {
 			}
 #endif // #if ECU_CONTROL
 			if (state.step == ST_WAIT_ENGINE_START) {
-				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+				if (st(AI_ROTATION_SPEED) > st(CFG_MIN_ROTATE)) { // Запуск двигателя
 #if ECU_CONTROL
 engine_start:
 					set(START_RELAY, OFF);
@@ -739,6 +733,9 @@ engine_start:
 					state.step = ST_SET_ROTATION;
 					cntrl_M_time = timers_get_finish_time(0);
 				} else {
+#ifdef MODEL_OBJ
+					Speed_loop(); // управление контуром оборотов
+#endif
 					if (timers_get_time_left(time.alg) == 0) {
 #ifdef MODEL_OBJ
 						goto engine_start;
@@ -918,10 +915,12 @@ void set_indication (void) {
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));
 	set(AO_PC_H_ENV_AIR, st(AI_H_AIR));
 #endif
-
+	float32_t curr_inp;
+#define CUR_TAU		0.10
 	//ток и напряжение АКБ
-	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
-	//val /= 10; // шунт 100А 750мкВ
+	curr_inp = st(AI_I_AKB_P) - st(AI_I_AKB_N);
+	curr_out = curr_inp * CUR_TAU + curr_out * (1 - CUR_TAU);
+	val = (int32_t)curr_out;
 	set(AO_PC_CURRENT, val);
 	set(AO_PC_VOLTAGE, st(AI_U_AKB));
 	//сигналы педали газа
@@ -1024,7 +1023,7 @@ void work_stop (void) {
 	servo_set_out(0);
 #endif
 #if ECU_CONTROL
-	EcuPedControl(0);
+	EcuPedControl(0, false);
 #endif
 #ifdef MODEL_OBJ
 	set(AI_FC_FREQ, 0);
@@ -1045,7 +1044,7 @@ void work_stop (void) {
  */
 void init_obj (void) {
 	TorqueObj.st = FrequeObj.st = HAL_GetTick();
-	FrequeObj.out = (float32_t)st(CFG_MIN_ROTATE) / 1000.0; // пред. знач-е вых. парам.
+	FrequeObj.out = ((float32_t)st(CFG_MIN_ROTATE) + 300.00) / 1000.0; // пред. знач-е вых. парам.
 	FrequeObj.tau = 3000.0; // постоянная времени апериодического звена, ms
 	TorqueObj.out = 0.0; // пред. знач-е вых. парам.
 	TorqueObj.tau = 2000.0; // постоянная времени апериодического звена, ms
@@ -1089,7 +1088,7 @@ void init_PID (void) {
 #else
 	#define TORQUE_MAX			400.0f // Нм
 #endif
-#define TORQUE_CORR			20.0f
+#define TORQUE_CORR			100.0f
 #define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
 #define SPEED_MUL			-40.00f
@@ -1140,20 +1139,18 @@ void Speed_loop (void) {
 				corr_max = abs_corr;
 				t_corr.alg = timers_get_finish_time(10000);
 			}
-			Speed_PID.Kp = SpeedKp * (1 + corr_max);
-			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + corr_max);
+			Speed_PID.Kp = SpeedKp * (1 + torq_corr + abs_corr);
 #else
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + torq_corr);
-			//Speed_PID.Ki = SpeedKi;
 #endif
+			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		if (tmp < ZONE_DEAD_REF) task = 0;
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #ifndef ECU_TSC1_CONTROL
 #if ECU_PED_CONTROL
-		if (SAFE) EcuPedControl(pi_out);
+		if (SAFE) EcuPedControl(pi_out, true);
 #elif SPSH_20_CONTROL
 		set_out = (int32_t)(pi_out * SPEED_MUL);
 		spsh20_set_pos(set_out);

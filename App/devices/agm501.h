@@ -10,8 +10,8 @@
 #define AGM_MAX_ERR_SEND	3	 // Допустимое количество запросов без ответа
 #define AGM_CH				26	 // регистров для чтения F04
 #define FIRST_IN_REG		0x0000
-#define MODE_REG			0x0000
-#define CMD_REG				0x0001
+#define MODE_REG			0x0001
+#define CMD_REG				0x0000
 #define NO_NO2			(1 << 10)
 #define MG_O2REF		(1 << 9)
 #define MG_NM3			(1 << 8)
