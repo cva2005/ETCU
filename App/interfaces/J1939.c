@@ -6,7 +6,7 @@
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
 static stime_t err_time, eh_time;
 static bool time_out;
-static uint8_t mess_cnt;
+//static uint8_t mess_cnt;
 
 void canJ1939_init (void) {
 	//can_1_set_filter32(PGN_61443, 0, 0xffff000, 1, CAN_FILTERMODE_IDMASK);

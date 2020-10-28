@@ -382,7 +382,7 @@ void read_devices (void) {
 	sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6);
 	sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
 	sg_st.etcu.i.a[ETCU_AI_P_OIL]=p_mm370_get_val(14);//adc_get_calc(14,1,0,3,3);//adc_sens_get_val(14);
-#define T_COOLANT_HI 		80000UL
+#define T_COOLANT_HI 		60000UL
 #define COOLANT_FAN_HYST 	10000UL
 #if ECU_CONTROL
 	int32_t t_cool;
@@ -481,8 +481,8 @@ void read_devices (void) {
 		sg_st.bcu.i.d = 0;
 		sg_st.bcu.i.a[0] = sg_st.bcu.i.a[1] = sg_st.bcu.i.a[2] = 0;
 	}
-#define T_OIL_ERR 		80000UL
-#define T_OIL_HI 		60000UL
+#define T_OIL_ERR 		70000UL
+#define T_OIL_HI 		40000UL
 #define OIL_FAN_HYST 	5000UL
 	if (t_bcu != ERROR_CODE) {
 	 	if (t_bcu > T_OIL_HI) set(DO_OIL_FAN, ON);
@@ -916,7 +916,7 @@ void set_indication (void) {
 	set(AO_PC_H_ENV_AIR, st(AI_H_AIR));
 #endif
 	float32_t curr_inp;
-#define CUR_TAU		0.10
+#define CUR_TAU		0.02
 	//ток и напряжение АКБ
 	curr_inp = st(AI_I_AKB_P) - st(AI_I_AKB_N);
 	curr_out = curr_inp * CUR_TAU + curr_out * (1 - CUR_TAU);
