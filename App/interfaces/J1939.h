@@ -16,18 +16,16 @@ extern J1939rxFun_t J1939rxFun;
  */
 #pragma pack(1)
 typedef struct J1939_ID {
-	unsigned SA:	 8;
+	unsigned SA:	 		8;
 	union {
 		struct {
-			unsigned PS:		 8;
-			unsigned PF:		 8;
-			unsigned DP:		 1;
-			unsigned EDP:		 1;
+		unsigned PS:		8;
+		unsigned PF:		8;
+		unsigned DP:		1;
+		unsigned EDP:		1;
 		} FIELD;
-		unsigned FULL:	18;
+		unsigned FULL:		18;
 	} PGN;
-	unsigned P:		 3;
-	unsigned R:		 3;
 } J1939_ID_t;
 #pragma pack()
 

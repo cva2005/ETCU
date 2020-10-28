@@ -88,26 +88,23 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 	}
 }
 
-uint8_t j1939Transmit (uint8_t* data, uint8_t len, J1939_ID_t id) {
-	return can_1_write_tx_data(*((uint32_t *)&id), len, data);
-}
-
 uint8_t HoursRequest (void) {
 	J1939_ID_t id;
-	id.P = PRIORITY_DEFAULT; // Priority
 	id.PGN.FULL = ADDR_CL_REQ;
-	//id.PGN.FIELD.PS = ADDR_HOURS;
 	id.SA = ADDR_HOURS;
+	uint32_t id_32 = *(uint32_t *)&id;
+	id_32 |= PRIORITY_DEFAULT << 26;
 	uint32_t req_pgn = ENG_HOURS;
-	return j1939Transmit ((uint8_t*)&req_pgn, 3, id);
+	return can_1_write_tx_data(id_32, 3, (uint8_t *)&req_pgn);
 }
 
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	PGN_00000_t pgn; J1939_ID_t id; uint8_t cc;
 	for (cc = 0; cc < sizeof(pgn); cc++) *((uint8_t *)&pgn + cc) = 0xff;
-	id.P = PRIORITY_TSC1; // Priority
 	id.PGN.FULL = TSC1; // Torque/Speed Control 1
 	id.SA = SRC_ADDR;
+	uint32_t id_32 = *((uint32_t *)&id);
+	id_32 |= PRIORITY_TSC1 << 26;
 	if (spd) {
 		pgn.ControlMode = SpeedControl;
 		pgn.RequestedSpeed = spd;
@@ -144,7 +141,7 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		}
 		pgn.ControlConditions = cc; // ”слови€ регулировани€ скорости (зависит от момента)
 	} // else png.ControlMode = OverrideDis;
-	return j1939Transmit((uint8_t *)&pgn, sizeof(PGN_00000_t), id);
+	return can_1_write_tx_data(id_32, sizeof(PGN_00000_t), (uint8_t *)&pgn);
 }
 
 bool J1939_error (void) {
