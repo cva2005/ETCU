@@ -1088,7 +1088,7 @@ void init_PID (void) {
 #else
 	#define TORQUE_MAX			400.0f // Íì
 #endif
-#define TORQUE_CORR			100.0f
+#define TORQUE_CORR			50.0f
 #define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
 #define SPEED_MUL			-40.00f

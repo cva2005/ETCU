@@ -15,7 +15,7 @@ static void mu6u_update_data (char *data, uint8_t len, uint8_t adr, uint8_t func
 		if (function == MODBUS_READ_HOLDING_REGISTERS) {
 			safe = SWAP16(*(uint16_t *)data);
 			if (safe != DAC1_OUT) {
-				if (!safe) safe = DAC1_OUT;
+				if (!safe) safe = SAFE_MAX_VAL;
 				safe++;
 			} else {
 				init = true;

@@ -55,7 +55,7 @@ typedef struct PGN_00000 { // TSC1 Torque Speed Control 1
 #pragma pack()
 
 //#define TSC1_CHECKSUM
-#define TSC1_TX_RATE		100
+#define TSC1_TX_RATE		50
 #if		TSC1_TX_RATE == 1000
 	#define VAL_TX_RATE		0
 #elif	TSC1_TX_RATE == 750
@@ -354,7 +354,7 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define AxleSteering		8
 #define AxleDrive1			9
 #define AxleDrive2			10
-#define SRC_ADDR			Transmission1
+#define SRC_ADDR			0x0b
 
 #define E_HOURS_TIME		1000 // EngineHours request interval, ms
 #define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms

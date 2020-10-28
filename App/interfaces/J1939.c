@@ -100,7 +100,6 @@ uint8_t HoursRequest (void) {
 
 uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 	PGN_00000_t pgn; J1939_ID_t id; uint8_t cc;
-	for (cc = 0; cc < sizeof(pgn); cc++) *((uint8_t *)&pgn + cc) = 0xff;
 	id.PGN.FULL = TSC1; // Torque/Speed Control 1
 	id.SA = SRC_ADDR;
 	uint32_t id_32 = *((uint32_t *)&id);
@@ -112,9 +111,9 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		pgn.ModePriority = HighestPriority;
 		pgn.TransmissionRate = VAL_TX_RATE;
 		pgn.ControlPurpose = PURP_OPER;
+#ifdef	TSC1_CHECKSUM
 		if (++mess_cnt > MESS_CNT_MAX) mess_cnt = 0;
 		pgn.MessageCounter = mess_cnt;
-#ifdef	TSC1_CHECKSUM
 		int checksum = 0, i;
 		for (i = 0; i < (sizeof(pgn) - 1); i++) {
 			checksum += ((uint8_t *)&pgn)[i];
@@ -125,8 +124,7 @@ uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd) {
 		}
 		pgn.MessageChecksum = (((checksum >> 6) & 0x03) + (checksum >>3) + checksum) & 0x07;
 #else
-		//pgn.MessageChecksum = NO_CHECK;
-		for (int i = 3; i < sizeof(pgn); i++) {
+		for (int i = 5; i < sizeof(pgn); i++) {
 			((uint8_t *)&pgn)[i] = 0xff;
 		}
 #endif

@@ -94,7 +94,7 @@ typedef struct {
 #define ETCU_AI_TEMP7		27
 #define ETCU_AI_TEMP8		28
 
-#ifdef SAFE_MODE
+#ifndef NO_SAFE
 #define SAFE	safe < SAFE_MAX_VAL
 #else
 #define SAFE	1
