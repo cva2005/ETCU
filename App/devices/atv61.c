@@ -4,11 +4,12 @@
  *  Created on: 4 февр. 2016 г.
  *      Author: Перчиц А.Н.
  */
+#include <string.h>
+#include <stdbool.h>
 #include "atv61.h"
 #include "canopen.h"
 #include "modbus.h"
 #include "timers.h"
-#include <string.h>
 
 static atv_pdo1_t atv61_tx_data; //отправляемые данные в PDO1
 static atv_pdo1_t atv61_rx_data; //принмаемые данные из PDO1
@@ -17,6 +18,7 @@ static stime_t atv61_connect_time;	//таймер ожидания ответов
 static stime_t atv61_tx_time;		//таймер отправки пакетов
 //static uint8_t atv61_cmd=ATV61_STOP; //команда управления: вращенияе влево, вращение вправо
 static int16_t atv61_frequency=0;
+static bool init = false;
 static uint8_t atv61_fault = 0; //ошибка преобразователя
 static uint8_t atv61_cfg_step = 0;
 static void atv61_cmd_prepare(void);
@@ -78,10 +80,20 @@ void atv61_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) 
 	if (adr == atv61_node_id) {
 		atv61_err_send = 0;
 		if (function == MODBUS_READ_HOLDING_REGISTERS) {
-			atv61_rx_data.word[0] = GET_UINT16(data); // Status word
-			atv61_rx_data.f.frequency = GET_UINT16(data + 2); // Output frequency
-			atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
-			atv61_connect_time = timers_get_finish_time(ATV61_CONNECT_TIME); // время ответа от slave устйройства
+			if (!init) {
+				sfreq = SWAP16(*(uint16_t *)data);
+				if (sfreq != ATV61_TURN_LEFT) {
+					if (!sfreq) sfreq = SFREQ_MAX;
+					sfreq++;
+				} else {
+					init = true;
+				}
+			} else {
+				atv61_rx_data.word[0] = GET_UINT16(data); // Status word
+				atv61_rx_data.f.frequency = GET_UINT16(data + 2); // Output frequency
+				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
+				atv61_connect_time = timers_get_finish_time(ATV61_CONNECT_TIME); // время ответа от slave устйройства
+			}
 		}
 	}
 #else
@@ -162,16 +174,28 @@ void atv61_step(void) {
 #ifdef ATV61_MB
 	if (timers_get_time_left(atv61_tx_time) == 0)	{
 		if (modbus_get_busy(ChN, atv61_node_id, Hi_pr)) return; // интерфейс занят
-		if (atv61_cfg_step == 0) {
-			atv61_cfg_step = 1;
-			if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_Status_word2, sizeof(atv_pdo1_t) / 2)) goto tx_compl;
+		if (!init) {
+			if (!sfreq) {
+				if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_CHA1, sizeof(sfreq) / 2)) goto tx_compl;
+			} else {
+				uint16_t tmp = SWAP16(sfreq);
+				if (modbus_wr_mreg(ChN, atv61_node_id, MB_CHA1, sizeof(sfreq) / 2, (char *)&tmp)) {
+					init = true;
+					goto tx_compl;
+				}
+			}
 		} else {
-			atv61_cmd_prepare(); // подготовить данные для отправки
-			if (modbus_wr_mreg(ChN, atv61_node_id, MB_Control_word2, sizeof(atv_pdo1_t) / 2, atv61_tx_data.byte)) {
-				atv61_cfg_step = 0;
+			if (atv61_cfg_step == 0) {
+				atv61_cfg_step = 1;
+				if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_Status_word2, sizeof(atv_pdo1_t) / 2)) goto tx_compl;
+			} else {
+				atv61_cmd_prepare(); // подготовить данные для отправки
+				if (modbus_wr_mreg(ChN, atv61_node_id, MB_Control_word2, sizeof(atv_pdo1_t) / 2, atv61_tx_data.byte)) {
+					atv61_cfg_step = 0;
 tx_compl:
-				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME);
-				if (atv61_err_send < 0xFF) atv61_err_send++;
+					atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME);
+					if (atv61_err_send < 0xFF) atv61_err_send++;
+				}
 			}
 		}
 	}

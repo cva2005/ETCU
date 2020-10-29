@@ -331,6 +331,8 @@ enum {
 #define ENGINE_RELAY		DO_STARTER // Сигнал: Включено зажигание
 #define GEN_EXC_RELAY		DO_FUEL_PUMP // Сигнал: Возбуждение Генератора
 #define START_RELAY			DO_COOLANT_HEATER // Сигнал: Запустить Двигатель
+#define SAFE_MAX			AO_PC_ROTATE
+#define SFREQ_MAX			AI_PC_ROTATE
 
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct

@@ -50,7 +50,7 @@ typedef struct {
 
 /* адреса датчиков в системе */
 #define NODE_ID_BCU 	1 // Адрес CanOpen модуля управления гидротормозом
-#define NODE_ID_FC		2 // Адрес CanOpen/ModBus преобразователя частоты
+#define NODE_ID_FC		6 // Адрес CanOpen/ModBus преобразователя частоты
 #define SPSH20_ADR		1 // Адрес CanOpen сервопривода
 #define ADR_SMOG 		1 // Адрес ModBus дымомера СМОГ 2-01
 #define ADR_AGM 		2 // Адрес ModBus газоанализатора AGM 501
@@ -95,9 +95,11 @@ typedef struct {
 #define ETCU_AI_TEMP8		28
 
 #ifndef NO_SAFE
-#define SAFE	safe < SAFE_MAX_VAL
+#define SAFE	safe < SAFE_MAX
+#define SFREQ	sreq < SFREQ_MAX
 #else
 #define SAFE	1
+#define SFREQ	1
 #endif
 
 void control_init (void); //инициализация системы управления

@@ -55,24 +55,21 @@ void Torque_loop (torq_val_t val);
 	void init_obj (void);
 #endif
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
+uint16_t safe = 0, sfreq = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
 #ifdef ECU_CONTROL
 static stime_t cool_time;
-#ifdef PID_ADAPTIVE
-	static float32_t corr_max;
-	static timeout_t t_corr;
-#endif
 #ifdef MODEL_OBJ
-	#define SPEED_KP			0.20f
-	#define SPEED_KI			0.023f
+	#define SPEED_KP			5.76f
+	#define SPEED_KI			1.20f
 #if ECU_CONTROL
-	#define SPEED_KD			0.02f
+	#define SPEED_KD			0.01f
 #else
 	#define SPEED_KD			0.0002f
 #endif
-	#define TORQUE_KP			0.15f
-	#define TORQUE_KI			0.08f
+	#define TORQUE_KP			9.75f
+	#define TORQUE_KI			0.98f
 	#define TORQUE_KD			0.001f
 #else
 	#define SPEED_KP			0.20f
@@ -261,7 +258,7 @@ void signals_start_cfg (void) {
 }
 //--------------------------------------------------------------------------------------------
 void parametrs_start_cfg (void) {
-	set(CFG_KEY_DELAY, DEF_KEY_DELAY);			//Антидребезг на кнопки
+	set(CFG_KEY_DELAY, DEF_KEY_DELAY); //Антидребезг на кнопки
 	set(CFG_PULSE1, PULSE_SENS_PL);
 	set(CFG_PULSE2, PULSE_SENS_PL);
 	set(CFG_PULSE3, PULSE_SENS_PL);
@@ -734,7 +731,7 @@ engine_start:
 					cntrl_M_time = timers_get_finish_time(0);
 				} else {
 #ifdef MODEL_OBJ
-					Speed_loop(); // управление контуром оборотов
+					//Speed_loop(); // управление контуром оборотов
 #endif
 					if (timers_get_time_left(time.alg) == 0) {
 #ifdef MODEL_OBJ
@@ -800,7 +797,7 @@ engine_start:
 				// Заданая скорость вращения -> на частотник
 				if (st(AI_PC_ROTATE) > st(CFG_MAX_ENGINE_SPEED))
 					set(AO_FC_FREQ, st(CFG_MAX_ENGINE_SPEED));
-				else set(AO_FC_FREQ, st(AI_PC_ROTATE));
+				else if (SFREQ) set(AO_FC_FREQ, st(AI_PC_ROTATE));
 #endif
 #ifdef MODEL_OBJ
 				Speed_Out = (float)st(AI_PC_ROTATE) / 1000.0;
@@ -1044,8 +1041,12 @@ void work_stop (void) {
  */
 void init_obj (void) {
 	TorqueObj.st = FrequeObj.st = HAL_GetTick();
-	FrequeObj.out = ((float32_t)st(CFG_MIN_ROTATE) + 300.00) / 1000.0; // пред. знач-е вых. парам.
+	FrequeObj.out = (((float32_t)st(CFG_MIN_ROTATE)) / 1000.0) + 300.00; // XX
+#ifdef ECU_CONTROL
+	FrequeObj.tau = 500.0; // постоянная времени апериодического звена, ms
+#else
 	FrequeObj.tau = 3000.0; // постоянная времени апериодического звена, ms
+#endif
 	TorqueObj.out = 0.0; // пред. знач-е вых. парам.
 	TorqueObj.tau = 2000.0; // постоянная времени апериодического звена, ms
 }
@@ -1116,33 +1117,18 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		pi_out = st(AI_PC_TORQUE) / 1000.0;
-		torq_corr = (pi_out / TORQUE_MAX);
+		//pi_out = st(AI_PC_TORQUE) / 1000.0;
+		torq_corr = (Torque_Out / TORQUE_MAX);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 #ifdef ECU_TSC1_CONTROL
 		if (SAFE) EcuTSC1Control(task, torq_corr);
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
-#ifdef PID_ADAPTIVE
-		pi_out -= Torque_Out; // PID input Error
-		float32_t abs_corr = fabs(pi_out / TORQUE_CORR);
-#endif
 		if ((SERVO_STATE >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
-#ifdef PID_ADAPTIVE
-			if (timers_get_time_left(t_corr.alg) == 0) {
-				corr_max = 0;
-			}
-			if (abs_corr > corr_max) {
-				corr_max = abs_corr;
-				t_corr.alg = timers_get_finish_time(10000);
-			}
-			Speed_PID.Kp = SpeedKp * (1 + torq_corr + abs_corr);
-#else
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-#endif
 			Speed_PID.Ki = SpeedKi * (exp(-tmp / SPEED_MAX) + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);

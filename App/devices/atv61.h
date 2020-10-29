@@ -10,6 +10,7 @@
 #ifndef APP_DEVICES_ATV61_H_
 #define APP_DEVICES_ATV61_H_
 #include "types.h"
+#include "_signals.h"
 
 #define ATV61_CONNECT_TIME 1000	//Макисмальное допустимое врем ожидания пакетов от ATV61, при превышении считается связь с ATV61 потерянной
 #define ATV61_DATA_TX_TIME 200	//Таймаут между отправляемыми пакетами к ATV61
@@ -77,6 +78,7 @@ void atv61_set_frequency(int32_t data);		//Устанавливает частоту ATV61
 int32_t atv61_get_frequency(void);		//Возвращает значение частоты ATV61
 uint8_t atv61_error (void);			//Возвращает состояние ошибки ПЧ
 uint8_t atv61_err_link (void);			//Возвращает состояние связи с ATV61
+extern uint16_t sfreq;
 #ifdef ATV61_MB
 void atv61_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function);
 #else
@@ -98,5 +100,6 @@ void atv61_update_data (char *data, uint8_t len, uint32_t adr);	//Обработчик пак
 #define MB_Status_word2		8603 // R-O
 #define MB_Output_speed		8604 // R-O
 #define MB_Input_word		12704// R/W
+#define MB_CHA1				12902// R/W
 
 #endif /* APP_DEVICES_ATV61_H_ */
