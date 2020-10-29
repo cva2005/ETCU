@@ -25,6 +25,9 @@
 #define ENGINE_H_WEIGHT		0.05f // 0.05 hr/bit
 #define OIL_C_OFFSET		40
 #define TORQUE_OFFSET		125
+#define SPD_MAX				2850.0f
+#define SPD_MIN				700.0f
+#define SPD_DIFF			(SPD_MAX - SPD_MIN)
 
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);

@@ -63,6 +63,7 @@ uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 	if (sp_w) TSC1state = true;
 	else TSC1state = false;
 	int8_t tq_b = (int8_t)(trq * TORQUE_LIM) + TORQUE_OFFSET;
+	PedalPos = (int32_t)(((spd - SPD_MIN) / (SPD_DIFF)) * 100000.0); // положение сервопривода %
 	return TorqueSpeedControl(tq_b, sp_w);
 }
 

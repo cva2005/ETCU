@@ -14,7 +14,7 @@ typedef union {
 #define MU6U_CONNECT_TIME	1000
 #define MU6U_DATA_TX_TIME	SPEED_LOOP_TIME
 #define MU6U_MAX_ERR_SEND	3
-#define SAFE_MAX_VAL		AO_PC_ROTATE << 1
+#define SAFE_MAX_VAL		AO_PC_ROTATE
 
 void mu6u_init (uint8_t ch, uint8_t addr); //Инициализация устйроства
 void mu6u_set_out (uint16_t data);//Устанавливает выходы DAC0, DAC1
