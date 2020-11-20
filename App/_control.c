@@ -37,6 +37,8 @@
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
 
+#define LEVEL_INI	40000
+static float32_t oil_level = LEVEL_INI;
 static float32_t curr_out = 0;
 static state_t state;
 static cmd_t cmd;
@@ -875,6 +877,7 @@ void set_indication (void) {
 #define LEVEL_MAX	100000
 #define LEVEL_MIN	10000
 #define LEVEL_ERR	125000
+#define LFLT_TAU	0.1
 	val = (st(AI_T_FUEL) * 100000) / 92; // Уровень топлива XP8
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
@@ -882,6 +885,8 @@ void set_indication (void) {
 	}
 	set(AO_PC_FUEL_LEVEL, val); // Уровень топлива XP8
 	val = (st(AI_T_OIL_OUT) * 100000) / 92; // Уровень масла XP7
+	oil_level = oil_level * (1 - LFLT_TAU) + val * LFLT_TAU;
+	val = oil_level;
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
 		else val = ERROR_CODE;
