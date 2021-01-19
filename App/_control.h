@@ -1,16 +1,16 @@
+/*
+ * _control.h
+ *
+ *  Created on: 12 янв. 2016 г.
+ *      Author: Перчиц А.Н.
+ */
+
 #ifndef APP__CONTROL_H_
 #define APP__CONTROL_H_
 #include "_signals.h"
-#include "arm_math.h"
-#include "ecu.h"
 
-#ifdef ECU_TSC1_CONTROL
-#define SPEED_LOOP_TIME		TSC1_TX_RATE // цикличность передачи сигнала управления
-#else
-#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
-#endif
 #define ERROR_CODE					0x7FFFFFFF
-#define DEF_KEY_DELAY				500	//Антидребезг на кнопки
+#define DEF_KEY_DELAY				500		//Антидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мА
 #define DEF_MAX_SERVO_POSITION		5000000	//максимальное положение сревопривода,
 #define DEF_MAX_ENGINE_SPEED		(735 * 1000) //максимальные обороты электромотора
@@ -25,11 +25,9 @@
 #define DEF_SPEED_TIME_HYDRO		10000	//Время выхода на полную мощность гидростанции
 #define DEF_TIMOUT_ENGINE_ROTATE	20000 	//Времяза которое должен выйти на заданные обороты двигатель
 #define DEF_TIMOUT_SET_TORQUE		20000 	//Время установки заданного крутящего моента
-#define STARTER_MAX_TIME			10000	//Максимальное время работы стартера в теплом помещении
 
 #define OPR_STOP_TEST		0
 #define OPR_START_TEST		1
-#define OPR_KEY_ON			2
 
 typedef struct {
 	uint8_t opr;
@@ -49,19 +47,12 @@ typedef struct {
 } timeout_t;
 
 /* адреса датчиков в системе */
-#define NODE_ID_BCU 	1 // Адрес CanOpen модуля управления гидротормозом
-#define NODE_ID_FC		6 // Адрес CanOpen/ModBus преобразователя частоты
-#define SPSH20_ADR		1 // Адрес CanOpen сервопривода
-#define ADR_SMOG 		1 // Адрес ModBus дымомера СМОГ 2-01
-#define ADR_AGM 		2 // Адрес ModBus газоанализатора AGM 501
-#define ADR_NL_3DPAS 	1 // Адрес ModBus датчика параметров атмосферы NL-3DPAS
-#define ADR_MV8A3 		5 // Адрес ModBus2 аналогового модуля MV110-8A
-#define ADR_MV8A2 		4 // Адрес ModBus2 аналогового модуля MV110-8A
-#define ADR_MV8A1 		3 // Адрес ModBus2 аналогового модуля MV110-8A
-#define ADR_MV8A 		3 // Адрес ModBus2 аналогового модуля MV110-8A
-#define ADR_MU6U 		2 // Адрес ModBus2 DAC модуля MU110-6U
-#define ADR_T46 		1 // Адрес ModBus2 датчика крутящего момента
-#define ADR_CDU			1 // Адрес CDUlink зарядно-разрядного устйроства
+#define NODE_ID_BCU 1	//Адрес CanOpen модуля управления гидротормозом
+#define NODE_ID_FC	2	//Адрес CanOpen/ModBus преобразователя частоты
+#define SPSH20_ADR	1	//Адрес сервопривода
+#define ADR_NL_3DPAS 1	//Адрес ModBus датчика параметров атмосферы NL-3DPAS
+#define ADR_T46 	1	//Адрес ModBus датчика крутящего момента
+#define ADR_CDU		1	//Адрес CDUlink зарядно-разрядного устйроства
 
 /* расположение аналоговых сигналов ETCU */
 #define ETCU_AI_FUEL1		0
@@ -93,14 +84,6 @@ typedef struct {
 #define ETCU_AI_TEMP6		26
 #define ETCU_AI_TEMP7		27
 #define ETCU_AI_TEMP8		28
-
-#ifndef NO_SAFE
-#define SAFE	safe < SAFE_MAX
-#define SFREQ	sreq < SFREQ_MAX
-#else
-#define SAFE	1
-#define SFREQ	1
-#endif
 
 void control_init (void); //инициализация системы управления
 void control_step (void); //1 шаг алгоритма управления

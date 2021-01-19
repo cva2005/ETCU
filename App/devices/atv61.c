@@ -18,7 +18,7 @@ static stime_t atv61_connect_time;	//таймер ожидания ответов
 static stime_t atv61_tx_time;		//таймер отправки пакетов
 //static uint8_t atv61_cmd=ATV61_STOP; //команда управления: вращенияе влево, вращение вправо
 static int16_t atv61_frequency=0;
-static bool init = false;
+//static bool init = false;
 static uint8_t atv61_fault = 0; //ошибка преобразователя
 static uint8_t atv61_cfg_step = 0;
 static void atv61_cmd_prepare(void);
@@ -42,7 +42,6 @@ void atv61_init(uint8_t ch, uint8_t node_id) {
 	atv61_frequency = 0;
 	atv61_fault = 0;
 	atv61_cfg_step = 0;
-#ifdef ATV61_MB
 	atv61_err_send = 0; //счётчик пакетов без ответа
 	if ((node_id <= 247) && (node_id > 0)) {
 		while ((pf_rx[ch][cnt] != NULL) && (cnt < MODBUS_MAX_DEV)) cnt++; //найти свободный указатель
@@ -54,18 +53,6 @@ void atv61_init(uint8_t ch, uint8_t node_id) {
 			atv61_connect_time = timers_get_finish_time(ATV61_CONNECT_TIME); // время ответа от slave устйройства
 		}
 	}
-#else
-	atv61_err.byte = 0;
-	if (node_id<=32) {
-		while ((CanOpen_rx_object[cnt]!=NULL)&&(cnt<MAX_DEV_CANOPEN))	cnt++; //найти свободный указатель
-		if (cnt<MAX_DEV_CANOPEN) {
-			CanOpen_rx_object[cnt]=atv61_update_data; //указать обработчик принатых пакетов
-			atv61_node_id=node_id;				  //сохранить адрес
-			atv61_tx_time=timers_get_finish_time(ATV61_DATA_TX_INIT); 	   //установить время отправки следующего пакета
-			atv61_connect_time=timers_get_finish_time(ATV61_CONNECT_TIME); //Установить ограничение времени когда должен быть принят пакет PDO от slave устйроства
-		}
-	}
-#endif
 }
 
 /**
@@ -75,54 +62,14 @@ void atv61_init(uint8_t ch, uint8_t node_id) {
   * 		len: длина принятых данных
   * 		adr: COB ID пакета (CAN адрес)
   */
-#ifdef ATV61_MB
 void atv61_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 	if (adr == atv61_node_id) {
 		atv61_err_send = 0;
-		if (function == MODBUS_READ_HOLDING_REGISTERS) {
-			if (!init) {
-				sfreq = SWAP16(*(uint16_t *)data);
-				if (sfreq != ATV61_TURN_LEFT) {
-					if (!sfreq) sfreq = SFREQ_MAX;
-					sfreq++;
-				} else {
-					init = true;
-				}
-			} else {
-				atv61_rx_data.word[0] = GET_UINT16(data); // Status word
-				atv61_rx_data.f.frequency = GET_UINT16(data + 2); // Output frequency
-				atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
-				atv61_connect_time = timers_get_finish_time(ATV61_CONNECT_TIME); // время ответа от slave устйройства
-			}
-		}
+		atv61_rx_data.word[0] = GET_UINT16(data); // Status word
+		atv61_rx_data.f.frequency = GET_UINT16(data + 2); // Output frequency
+		atv61_tx_time = timers_get_finish_time(ATV61_DATA_TX_TIME); // время отправки следующего пакета
+		atv61_connect_time = timers_get_finish_time(ATV61_CONNECT_TIME); // время ответа от slave устйройства
 	}
-#else
-void atv61_update_data (char *data, uint8_t len, uint32_t adr) Х
-	uint16_t object, index, subindex;
-
-	if (CanOpen_get_nodeid(adr)==atv61_node_id) {
-		object=CanOpen_get_object(adr);
-		if (object==PDO1_TX_SLAVE) {
-			if (len>sizeof(atv61_rx_data)) len=sizeof(atv61_rx_data);
-			memcpy(atv61_rx_data.byte, data, len);
-			atv61_connect_time=timers_get_finish_time(ATV61_CONNECT_TIME); //установить счётчик ожидания подключения
-			atv61_cfg_step=0;
-		}
-		if (object==EMERGENCY)
-			if (len>=1) atv61_err.byte=data[0];
-		if (object==SDO_TX_SLAVE) {
-			index=CanOpen_get_index(data);
-			subindex=CanOpen_get_subindex(data);
-			atv61_cfg_step++;					//если SDO принят, значит получили подтверждение на отправку SDO перейти к отправки следующего слова конфигурации
-			atv61_connect_time=timers_get_finish_time(0);	//установить "время ожидания данных от ПЧ истекло"
-			atv61_tx_time=timers_get_finish_time(1);		//следующий пакет о править через 1 мс
-		}
-		if (object==BOOTUP) { //Если устйроство перезагрузилось
-			atv61_connect_time=timers_get_finish_time(0); //установить "время ожидания данных от ПЧ истекло", т.к. после перезагрузки ПЧ не будет слать данные
-			atv61_cfg_step=1;			//пропустить  0-1 шаг (сброс коммуникации)
-		}
-	}
-#endif
 }
 
 /**
@@ -174,7 +121,7 @@ void atv61_step(void) {
 #ifdef ATV61_MB
 	if (timers_get_time_left(atv61_tx_time) == 0)	{
 		if (modbus_get_busy(ChN, atv61_node_id, Hi_pr)) return; // интерфейс занят
-		if (!init) {
+		/*if (!init) {
 			if (!sfreq) {
 				if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_CHA1, sizeof(sfreq) / 2)) goto tx_compl;
 			} else {
@@ -184,7 +131,7 @@ void atv61_step(void) {
 					goto tx_compl;
 				}
 			}
-		} else {
+		} else*/ {
 			if (atv61_cfg_step == 0) {
 				atv61_cfg_step = 1;
 				if (modbus_rd_hold_reg(ChN, atv61_node_id, MB_Status_word2, sizeof(atv_pdo1_t) / 2)) goto tx_compl;
