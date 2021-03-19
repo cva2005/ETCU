@@ -67,7 +67,7 @@ void pulse_check(mov_t mov)
 	} else StateCnt = 0;
 }
 
-mov_t mov_state(void)
+static mov_t mov_state(void)
 {
 	if (null_sens()) {
 		if (st(FORWARD_MOV)) { // положение "0"

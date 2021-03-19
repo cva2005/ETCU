@@ -35,7 +35,6 @@ typedef union
 #define DI 2 //дискретный вход
 #define AO 3 //аналоговый выход
 #define AI 4 //аналоговый вход
-/* ToDo: сигналы управления! */
 //-------------------описание устройств: device----------------------------------------------
 #define ETCU 1	//контроллер
 #define PC 2	//управляющий ПК
@@ -219,7 +218,6 @@ enum {
 #define AI_PC_SPEED_KP		(st(AI_PC_SPEED_KP_KI) >> 16)
 #define AI_PC_TORQUE_KI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
 #define AI_PC_TORQUE_KP		(st(AI_PC_TORQUE_KP_KI) >> 16)
-
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct
 	{

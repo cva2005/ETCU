@@ -30,6 +30,7 @@
 #include "p_mm370.h"
 #include "p_745_3829.h"
 #include "servo.h"
+#include "la10p.h"
 
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
@@ -54,6 +55,7 @@ void init_obj (void);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
+
 #ifdef MODEL_OBJ
 	#define SPEED_KP			0.80f
 	#define SPEED_KI			0.05f
@@ -282,17 +284,20 @@ void control_init(void) {
 	ds18b20_init(8);
 #endif
 	nl_3dpas_init(CH1, ADR_NL_3DPAS);
-#ifndef NO_TORQ_DRIVER
+#ifdef TORQ_DRIVER
 	t46_init(CH2, ADR_T46);
 #endif
-#ifndef NO_SPSH_20
+#if SPSH_CONTROL
 	spsh20_init(SPSH20_ADR);
-#endif
-#ifndef NO_SERVO_DRIVER
+#elif SERVO_CONTROL
 	servo_init();
+#elif LA10P_CONTROL
+	la10p_init();
+#else
+	#error "Accelerator driver not defined"
 #endif
 	bcu_init(NODE_ID_BCU);
-#ifndef NO_FREQ_DRIVER
+#ifdef FREQ_DRIVER
 	atv61_init(CH1, NODE_ID_FC);
 #endif
 	pc_device_init();
@@ -336,7 +341,8 @@ void read_devices (void) {
 	sg_st.etcu.i.a[ETCU_AI_T3]=t_auto_get_val(3);
 	//sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_val(6);
 	sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6);
-	sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
+	//sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
+	sg_st.etcu.i.a[ETCU_AI_T5] = adc_get_u(7);
 	sg_st.etcu.i.a[ETCU_AI_P_OIL]=p_mm370_get_val(14);//adc_get_calc(14,1,0,3,3);//adc_sens_get_val(14);
 #define T_COOLANT_HI 		80000UL
 #define COOLANT_FAN_HYST 	10000UL
@@ -409,7 +415,7 @@ void read_devices (void) {
 		cmd.opr = ST_STOP_ERR;
  	}
 //----данные ПЧ
-#ifndef NO_FREQ_DRIVER
+#ifdef FREQ_DRIVER
 	error.bit.no_fc = atv61_err_link();
 	if (error.bit.no_fc == 0) {
 		sg_st.fc.i.a[0] = atv61_get_frequency();
@@ -422,7 +428,7 @@ void read_devices (void) {
 	}
 #endif
 //----данные сервопривода
-#ifdef SPSH_20_CONTROL
+#if SPSH_CONTROL
 	if (spsh20_err_link() == 0) {
 		sg_st.ta.i.a[1] = spsh20_get_status();
 		if (sg_st.ta.i.a[1] != SERVO_OK) goto servo_err;
@@ -434,7 +440,7 @@ servo_err:
 		state.step = ST_STOP_ERR;
 		cmd.opr = ST_STOP_ERR;
 	}
-#elif SERVO_DRIVER
+#elif SERVO_CONTROL
 	servo_st srv_st = servo_state();
 	sg_st.ta.i.a[1] = (int32_t)srv_st;
 	sg_st.ta.i.a[0] = ERROR_CODE;
@@ -457,12 +463,13 @@ servo_stop_error:
 		//sg_st.ta.i.a[0] = CurrTime * 1000;
 		sg_st.ta.i.a[0] = servo_get_pos()  * 1000;
 	}
+#elif LA10P_CONTROL
+	// ToDo: обработчик ошибок
 #else
-	if (ServoPos > 10000) ServoPos = 10000;
-	sg_st.ta.i.a[0] = ServoPos * 10;
+	#error "Accelerator driver not defined"
 #endif
 //----данные датчика параметров атмосферы
-	if (nl_3dpas_err_link() == 0) {
+	if (nl_3dpas_err_link() == 0) { // ToDo: датчик уже не используется!!!
 		sg_st.aps.i.a[0] = nl_3dpas_get_temperature();
 		sg_st.aps.i.a[1] = nl_3dpas_get_pressure();
 		sg_st.aps.i.a[2] = nl_3dpas_get_humidity();
@@ -472,7 +479,7 @@ servo_stop_error:
 		sg_st.aps.i.a[2] = ERROR_CODE;
 	}
 //---данные датчика момента
-#ifndef NO_TORQ_DRIVER
+#ifdef TORQ_DRIVER
 	if (t46_err_link() == 0) {
 		sg_st.bcu.i.a[3] = t46_get_torque();
 		sg_st.bcu.i.a[4] = t46_get_freq();
@@ -570,7 +577,7 @@ void work_step (void) {
 				if (timers_get_time_left(time.alg) == 0) {
 #ifndef NO_BATTERY
 					if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
-#ifdef NO_SERVO_DRIVER
+#ifndef SERVO_CONTROL
 						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
 #endif
 #endif
@@ -623,7 +630,7 @@ void work_step (void) {
 					}
 				}
 #endif // MODEL_OBJ
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 				int32_t pos = st(AI_SERVO_POSITION);
 				if (pos > MAX_SERVO_POSITION || pos < MIN_SERVO_POSITION) {
 					error.bit.engine_start = 1; // сбой управления сервоприводом
@@ -648,7 +655,7 @@ void work_step (void) {
 				if (st(DI_PC_BRAKE_TEST) == ON) {
 					set(DO_OIL_PUMP, ON);
 				}
-#ifdef NO_FREQ_DRIVER
+#ifndef FREQ_DRIVER
 				// Cкорость вращения сразу на индикацию PC минуя ПЧ
 				if (st(AI_PC_ROTATE) > st(CFG_MAX_ENGINE_SPEED))
 					set(AI_FC_FREQ, st(CFG_MAX_ENGINE_SPEED));
@@ -673,13 +680,13 @@ void work_step (void) {
 			if (state.step == ST_BREAK_TEST) {
 				Torque_loop(Percent); // управление контуром крутящего момента
 			}
-#ifndef NO_FREQ_DRIVER
+#ifdef FREQ_DRIVER
 			set(AO_FC_FREQ, st(AI_PC_ROTATE)); // Заданая скорость вращения -> на частотник
 			if ((error.bit.err_fc) || (error.bit.err_fc_speed)) state.step = ST_STOP_ERR;
 #else
 #ifdef MODEL_OBJ
 			set(AO_FC_FREQ, (int32_t)(Speed_Out * 1000.0)); // Заданая скорость вращения -> на частотник
-			//sg_st.bcu.i.a[4] = st(AI_PC_ROTATE); // ToDo
+			//sg_st.bcu.i.a[4] = st(AI_PC_ROTATE);
 #endif
 #endif
 		}
@@ -701,7 +708,7 @@ void set_indication (void) {
 	set(AO_PC_POWER, st(AI_POWER));
 	//датчик момента
 	if ((state.opr == OPR_START_TEST) && (st(DI_PC_HOT_TEST) == OFF)) {
-#ifdef NO_FREQ_DRIVER
+#ifndef FREQ_DRIVER
 		set(AO_PC_ROTATE, st(AI_PC_ROTATE));
 #else
 		//set(AO_PC_ROTATE, st(AI_FC_FREQ));
@@ -714,7 +721,7 @@ void set_indication (void) {
 	//температура выхлопных газов
 	set(AO_PC_T_EXHAUST, st(AI_T_EXHAUST));
 	//set(AO_PC_T_EXHAUST, st(AI_VALVE_POSITION) * 1000); // ToDo датчик тока СП
-	//датчики температуры двигателя ToDo датчик ВГ
+	//датчики температуры двигателя (датчик ВГ?)
 	set(AO_PC_T_COOLANT_IN, st(AI_T_COOLANT_IN));
 	set(AO_PC_T_COOLANT_OUT, st(AI_T_COOLANT_OUT));
 	set(AO_PC_T_OIL_IN, st(AI_T_OIL_IN));
@@ -746,20 +753,11 @@ void set_indication (void) {
 	}
 	set(AO_PC_T_OIL_OUT, val); // Уровень масла XP7
 	//датчики локального нагрева
-#ifdef SERVO_DEBUG
-	extern uint32_t ForwCurrMax, RevCurrMax, ErrCurrMax, CurrFilterOut, CurrTmpVal;
-	set(AO_PC_T_EXT1, ForwCurrMax * 10);
-	set(AO_PC_T_EXT2, RevCurrMax * 10);
-	set(AO_PC_T_EXT3, ErrCurrMax * 10);
-	set(AO_PC_T_EXT4, CurrFilterOut * 10);
-	set(AO_PC_T_EXT5, CurrTmpVal * 10);
-#else
 	set(AO_PC_T_EXT1, st(AI_T_EXT1));
 	set(AO_PC_T_EXT2, st(AI_T_EXT2));
 	set(AO_PC_T_EXT3, st(AI_T_EXT3));
 	set(AO_PC_T_EXT4, st(AI_T_EXT4));
 	set(AO_PC_T_EXT5, st(AI_T_EXT5));
-#endif
 	set(AO_PC_T_EXT6, st(AI_T_EXT6));
 	set(AO_PC_T_EXT7, st(AI_T_EXT7));
 	set(AO_PC_T_EXT8, st(AI_T_EXT8));
@@ -770,26 +768,16 @@ void set_indication (void) {
 	//set(AO_PC_T_CHARGE, st(AI_T_CHARGE)); //Аналоговый: Температура наддувочного воздуха
 	set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
 	//параметры атмосферы
-#ifdef SERVO_DEBUG
-	extern int32_t ServoCount, FullCount, TaskCount;
-	extern int32_t ServoCount, FullCount, TaskCount;
-	set(AO_PC_T_ENV_AIR, TaskCount * 1000);
-	set(AO_PC_P_ENV_AIR, FullCount * 1000);
-	set(AO_PC_H_ENV_AIR, ServoCount * 1000);
-	//extern uint32_t CurrFilterOut;
-	//set(AO_PC_H_ENV_AIR, CurrFilterOut * 1000);
-#else
 	set(AO_PC_T_ENV_AIR, st(AI_T_AIR));
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));
 	set(AO_PC_H_ENV_AIR, st(AI_H_AIR));
-#endif
 
 	//ток и напряжение АКБ
 	val=st(AI_I_AKB_P)-st(AI_I_AKB_N);
 	set(AO_PC_CURRENT, val);
 	set(AO_PC_VOLTAGE, st(AI_U_AKB));
 	//сигналы педали газа
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 #if MIN_SERVO_POSITION < 0
 	#define SERVO_MOVE (float32_t)(MIN_SERVO_POSITION - MAX_SERVO_POSITION)
 #else
@@ -832,10 +820,33 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	return 1;
 }
 
+#if ECU_TSC1_CONTROL
+	#define ZONE_DEAD_REF		0.0f
+	#define ACCEL_STATE			0.0f
+	#define ACCEL_SET
+#elif SERVO_CONTROL
+	#define ACCEL_SET			servo_set_out
+	#define ACCEL_STATE			servo_get_pos()
+	#define ZONE_DEAD_REF		80.0f
+	#define SPEED_MUL			1.20f
+#elif SPSH_CONTROL
+	#define ACCEL_SET			spsh20_set_pos
+	#define ACCEL_STATE			(float32_t)(spsh20_get_pos() / 1000)
+	#define ZONE_DEAD_REF		20.0f
+	#define SPEED_MUL			-40.00f
+#elif LA10P_CONTROL
+	#define ACCEL_SET			la10p_set_out
+	#define ACCEL_STATE			la10p_get_pos()
+	#define ZONE_DEAD_REF		30.0f
+	#define SPEED_MUL			1.20f
+#else
+	#error "Accelerator driver not defined"
+#endif
+
 void work_stop (void) {
 	set(DO_STARTER, OFF);
 	set(AO_FC_FREQ, 0);
-#ifdef NO_FREQ_DRIVER
+#ifndef FREQ_DRIVER
 	set(AI_PC_ROTATE, 0);
 #endif
 	uint32_t pwm1_out = st(AO_HYDROSTATION);
@@ -858,12 +869,7 @@ void work_stop (void) {
 	}
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
-#ifndef NO_SPSH_20
-	spsh20_set_pos(0);
-#endif
-#ifndef NO_SERVO_DRIVER
-	servo_set_out(0);
-#endif
+	ACCEL_SET(0);
 #ifdef MODEL_OBJ
 	ServoPos = 0;
 	set(AI_FC_FREQ, 0);
@@ -927,24 +933,7 @@ void init_PID (void) {
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.4f
 #define SPEED_MAX			2000.0f
-#define SPEED_MUL			-40.00f
 #define SPEED_FACT			45.0f
-#define SERVO_FACT			1.20f
-#ifdef ECU_TSC1_CONTROL
-	#define ZONE_DEAD_REF		0.0f
-	#define SERVO_STATE			0.0f
-#elif  SERVO_CONTROL
-	#define SERVO_STATE			servo_get_pos()
-	#define ZONE_DEAD_REF		50.0f
-#elif SPSH_20_CONTROL
-	#define SERVO_STATE			(float32_t)(spsh20_get_pos() / 1000)
-	#define ZONE_DEAD_REF		20.0f
-#elif SERVO_DEBUG
-	#define ZONE_DEAD_REF		80.0f
-#else
-	#define ZONE_DEAD_REF		0.0f
-	#define SERVO_STATE			0.0f
-#endif
 /*
  * Управление контуром оборотов
  */
@@ -952,11 +941,11 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		float32_t tmp = fabs(task);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
+		float32_t tmp = fabs(task);
 		torq_corr = (Torque_Out / TORQUE_MAX);
-		if ((SERVO_STATE >= 99.0) && (task > 0)) {
+		if ((ACCEL_STATE >= 99.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
 			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
@@ -965,24 +954,14 @@ void Speed_loop (void) {
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 		if (tmp < ZONE_DEAD_REF) task = 0;
 		pi_out = arm_pid_f32(&Speed_PID, task);
-#ifdef SPSH_20
-		set_out = (int32_t)(pi_out * SPEED_MUL);
-		spsh20_set_pos(set_out);
-#elif SERVO_DRIVER
-	#ifdef MODEL_OBJ
-		if (task)
-	#endif
-		servo_set_out(pi_out * SERVO_FACT);
-#else
-		ServoPos = pi_out * SERVO_FACT;
-#endif
+		ACCEL_SET(pi_out * SPEED_MUL);
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
-	#ifdef SERVO_DRIVER
+	#if SERVO_CONTROL
 		pi_out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
 	#else
 		pi_out *= (1 - torq_corr);
-	#endif // SERVO_DRIVER
+	#endif
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
@@ -1038,7 +1017,7 @@ void Torque_loop (torq_val_t val) {
 			float32_t pi_out, task;
 			task = st(AI_PC_TORQUE) / 1000.0;
 			task -= Torque_Out; // PID input Error
-			pi_out = arm_pid_f32(&Torque_PID, task); // ToDo: нормирование вх. сигнала ПИ
+			pi_out = arm_pid_f32(&Torque_PID, task);
 #ifdef MODEL_OBJ
 			Torque_Out = get_obj(&TorqueObj, pi_out);
 #endif

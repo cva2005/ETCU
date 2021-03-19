@@ -59,7 +59,7 @@ uint8_t servotech_link_set_channel(uint8_t channel)
   * @brief  шаг обмена CanOpen: необходимо добавить в основной цикл
   *
   */
-void servotech_link_step(void) // ToDo: ИМ контрура оборотов ("медленный сервопривод")
+void servotech_link_step(void) // ИМ контрура оборотов
 {uint8_t cnt, read_st, can_msg[8], can_length;
 uint32_t can_id;
 
@@ -102,7 +102,7 @@ uint32_t can_id;
   *
   * @retval 0:не отправлен 1:отправлен
   */
-// ToDo: ИМ контрура оборотов ("медленный сервопривод")
+// ИМ контрура оборотов
 uint8_t servotech_link_tx_tech(uint8_t adr, servotech_link_tech_t cmd, uint16_t parameter, uint32_t data)
 {uint8_t can_msg[8], can_length;
 servotech_link_id_t can_id;

@@ -51,7 +51,7 @@ void pulse_in_init(uint8_t chan)
 	switch (chan)
 		{
 		case 0:
-#ifdef PULSE_IN_1 // ToDo: импульсные датчики?
+#ifdef PULSE_IN_1
 			pulse_in_tim_point[chan]=&PULSE_IN_1; //htim=&PULSE_IN_1;
 			pulse_in_base_mode[chan]=PULSE_IN_1_BASE_MODE;
 #endif

@@ -58,30 +58,30 @@ void main_app (void) {
 	pulse_in_init(3);
 	ds2482_init();
 	modbus_init();
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 	pc_link_init();
 #endif
 	control_init();
 	led_blink_time = timers_get_finish_time(LED_BLINK_TIME);
 	while (1) {
 		modbus_step();
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#ifndef NO_SPSH_20
+#ifdef SPSH_CONTROL
 		pc_link_step();
 		spsh20_step();
 #endif
-#ifndef NO_SERVO_DRIVER
+#ifdef SERVO_CONTROL
 		servo_step();
 #endif
 		bcu_step();
-#ifndef NO_FREQ_DRIVER
+#ifdef FREQ_DRIVER
 		atv61_step();
 #endif
 		pc_device_step();
@@ -89,7 +89,7 @@ void main_app (void) {
 		ds18b20_step();
 #endif
 		nl_3dpas_step();
-#ifndef NO_TORQ_DRIVER
+#ifdef TORQ_DRIVER
 		t46_step();
 #endif
 		control_step();

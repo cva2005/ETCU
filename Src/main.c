@@ -65,7 +65,7 @@ DMA_HandleTypeDef hdma_sdio_rx;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
-TIM_HandleTypeDef htim9; // ToDo: рег. параметр контрура оборотов ("медленный сервопривод")
+TIM_HandleTypeDef htim9;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
