@@ -33,6 +33,7 @@
 #include "_control.h"
 #include "timers.h"
 #include "servo.h"
+#include "la10p.h"
 
 stime_t led_blink_time;
 
@@ -69,16 +70,17 @@ void main_app (void) {
 	led_blink_time = timers_get_finish_time(LED_BLINK_TIME);
 	while (1) {
 		modbus_step();
-#ifdef SPSH_CONTROL
+#if SPSH_CONTROL
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#ifdef SPSH_CONTROL
+#if SPSH_CONTROL
 		pc_link_step();
 		spsh20_step();
-#endif
-#ifdef SERVO_CONTROL
+#elif SERVO_CONTROL
 		servo_step();
+#elif LA10P_CONTROL
+		la10p_step();
 #endif
 		bcu_step();
 #ifdef FREQ_DRIVER

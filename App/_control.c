@@ -57,8 +57,8 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_NO_RESET			0
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP			0.80f
-	#define SPEED_KI			0.05f
+	#define SPEED_KP			0.30f
+	#define SPEED_KI			0.01f
 	#define SPEED_KD			0.001f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
@@ -465,6 +465,7 @@ servo_stop_error:
 	}
 #elif LA10P_CONTROL
 	// ToDo: обработчик ошибок
+	sg_st.ta.i.a[0] = la10p_get_pos()  * 1000;
 #else
 	#error "Accelerator driver not defined"
 #endif
@@ -837,8 +838,8 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 #elif LA10P_CONTROL
 	#define ACCEL_SET			la10p_set_out
 	#define ACCEL_STATE			la10p_get_pos()
-	#define ZONE_DEAD_REF		30.0f
-	#define SPEED_MUL			1.20f
+	#define ZONE_DEAD_REF		60.0f
+	#define SPEED_MUL			0.50f
 #else
 	#error "Accelerator driver not defined"
 #endif
@@ -945,7 +946,7 @@ void Speed_loop (void) {
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
 		torq_corr = (Torque_Out / TORQUE_MAX);
-		if ((ACCEL_STATE >= 99.0) && (task > 0)) {
+		if ((ACCEL_STATE >= 95.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
 			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
@@ -958,10 +959,11 @@ void Speed_loop (void) {
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
 	#if SERVO_CONTROL
-		pi_out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
-	#else
-		pi_out *= (1 - torq_corr);
+		pi_out = ACCEL_STATE * SPEED_FACT;
+	#elif LA10P_CONTROL
+		pi_out = ACCEL_STATE * SPEED_FACT;
 	#endif
+		pi_out *= (1 - torq_corr);
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
