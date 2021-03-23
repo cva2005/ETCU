@@ -335,14 +335,15 @@ void read_devices (void) {
 	sg_st.etcu.i.a[ETCU_AI_I_P]=i_sens_get_val(12) * 10;//adc_get_calc(11,1,0,1,1);//adc_sens_get_val(11);
 	sg_st.etcu.i.a[ETCU_AI_I_N]=i_sens_get_val(11) * 10;//adc_get_calc(12,1,0,1,1);//adc_sens_get_val(12);
 	sg_st.etcu.i.a[ETCU_AI_U]=u_sens_get_val();//adc_get_calc(13,1,0,1,1);//adc_sens_get_val(13);
-	sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL]=p_745_get_val();//adc_get_calc(0,1,0,3,3);//adc_sens_get_val(0);
+	//sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL]=p_745_get_val();//adc_get_calc(0,1,0,3,3);//adc_sens_get_val(0);
+	sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL] = adc_get_u(0); // la10p датчик тока
 	sg_st.etcu.i.a[ETCU_AI_T1]=t_auto_get_val(1);
 	sg_st.etcu.i.a[ETCU_AI_T2]=t_auto_get_val(2);
 	sg_st.etcu.i.a[ETCU_AI_T3]=t_auto_get_val(3);
 	//sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_val(6);
-	sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6);
-	//sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
-	sg_st.etcu.i.a[ETCU_AI_T5] = adc_get_u(7);
+	//sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6);
+	sg_st.etcu.i.a[ETCU_AI_T4] = adc_get_u(6); // la10p датчик положения
+	sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
 	sg_st.etcu.i.a[ETCU_AI_P_OIL]=p_mm370_get_val(14);//adc_get_calc(14,1,0,3,3);//adc_sens_get_val(14);
 #define T_COOLANT_HI 		80000UL
 #define COOLANT_FAN_HYST 	10000UL
@@ -461,11 +462,22 @@ servo_stop_error:
 		cmd.opr = ST_STOP_ERR;
 	} else { //extern uint32_t CurrTime;
 		//sg_st.ta.i.a[0] = CurrTime * 1000;
-		sg_st.ta.i.a[0] = servo_get_pos()  * 1000;
+		sg_st.ta.i.a[0] = servo_get_pos() * 1000;
 	}
 #elif LA10P_CONTROL
-	// ToDo: обработчик ошибок
-	sg_st.ta.i.a[0] = la10p_get_pos()  * 1000;
+	la10p_st srv_st = la10p_state();
+	sg_st.ta.i.a[1] = (int32_t)srv_st;
+	sg_st.ta.i.a[0] = la10p_get_pos() * 1000;
+	if (srv_st != SERVO_READY) {
+		if (srv_st == SERVO_NOT_INIT) {
+			error.bit.servo_not_init = 1;
+		} else { // SERVO_STOP_ERR
+			error.bit.servo_error = 1;
+			state.step = ST_STOP_ERR;
+			cmd.opr = ST_STOP_ERR;
+			sg_st.ta.i.a[0] = ERROR_CODE;
+		}
+	}
 #else
 	#error "Accelerator driver not defined"
 #endif
@@ -523,6 +535,7 @@ void read_keys (void) {
 	}
 	if (st(DI_PC_TEST_STOP)) {
 		cmd.opr=OPR_STOP_TEST;
+		if (error.bit.servo_error) la10p_init();
 		error.dword=0;
 		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
@@ -742,6 +755,8 @@ void set_indication (void) {
 		else val = ERROR_CODE;
 	}
 	set(AO_PC_FUEL_LEVEL, val); // Уровень топлива XP8
+	set(AO_PC_T_OIL_OUT, st(AI_T_OIL_OUT)); // ToDo: la10p датчик положения
+#if 0 //
 	val = (st(AI_T_OIL_OUT) * 100000) / 92; // Уровень масла XP7
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
@@ -753,6 +768,7 @@ void set_indication (void) {
 		cmd.opr = ST_STOP_ERR;
 	}
 	set(AO_PC_T_OIL_OUT, val); // Уровень масла XP7
+#endif
 	//датчики локального нагрева
 	set(AO_PC_T_EXT1, st(AI_T_EXT1));
 	set(AO_PC_T_EXT2, st(AI_T_EXT2));
@@ -767,7 +783,9 @@ void set_indication (void) {
 	set(AO_PC_P_OIL, st(AI_P_OIL)); //Аналоговый: Давление масла
 	//set(AO_PC_P_CHARGE, st(AI_P_CHARGE)); //Аналоговый: Давление наддувочного воздуха
 	//set(AO_PC_T_CHARGE, st(AI_T_CHARGE)); //Аналоговый: Температура наддувочного воздуха
-	set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
+	//set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
+	extern uint32_t curr;
+	set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
 	//параметры атмосферы
 	set(AO_PC_T_ENV_AIR, st(AI_T_AIR));
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));
