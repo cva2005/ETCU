@@ -39,8 +39,6 @@ void la10p_init(void) {
 	state = LA10P_NOT_INIT;
 }
 
-// ToDo: возможно следует добавить датчик тока
-// для диагностики ошибок в штатном режиме управления
 void la10p_step(void) {
 	if (timers_get_time_left(step_time) == 0) {
 		step_time = timers_get_finish_time(STEP_TIME);
@@ -99,10 +97,10 @@ void la10p_step(void) {
 				}
 			}
 		} else { // state == LA10P_READY
-			curr = (CURR_SENS_A * 1000.0);
 			if (CURR_SENS_A > SENS_I_MAX) goto la10p_error;
 			float32_t diff;
 #ifdef MODEL_OBJ
+			curr = (CURR_SENS_A * 1000.0);
 			diff = STEP_TIME / FullTime;
 			diff *= SensMax - SensMin;
 			if (st(FORWARD_MOV)) { // движение вперед
@@ -117,11 +115,11 @@ void la10p_step(void) {
 			diff /= SensMax - SensMin;
 			diff *= FullTime;
 			if (diff > RELE_TIME) {
-				set(FORWARD_MOV, ON);
 				set(REVERS_MOV, OFF);
+				set(FORWARD_MOV, ON);
 			} else if (diff < -RELE_TIME) {
-				set(REVERS_MOV, ON);
 				set(FORWARD_MOV, OFF);
+				set(REVERS_MOV, ON);
 			} else {
 				if (st(FORWARD_MOV)) { // движение вперед
 					if (diff < STEP_TIME / 2) set(FORWARD_MOV, OFF);

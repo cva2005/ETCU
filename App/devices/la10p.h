@@ -37,11 +37,10 @@ typedef enum {
 #define LA10P_ERR_TIME		LA10P_FULL_TIME
 #define LA10P_MIN_TIME		(LA10P_FULL_TIME - LA10P_FULL_TIME / 4)
 #define LA10P_MUL			5.00f
-#define STEP_TIME			100 // время шага управления приводом, мс
-#define RELE_TIME			200 // время шага управления приводом, мс
+#define STEP_TIME			100 // время шага опроса привода, мс
+#define RELE_TIME			200 // время шага управления реле, мс
 #define SENS_MAX_VAL		3000.0f // максимальное выходное значение, мВ
 #define SENS_ERR_VAL		3300.0f // максимальное выходное значение, мВ
-#define SENS_MIN_VAL		0.0f // минимальное выходное значение, мВ
 #define SENS_MIN_VAL		0.0f // минимальное выходное значение, мВ
 #define SENS_I_MUL			0.6666666666666667f // входной делитель
 #define SENS_I_mV_A			185.0f // Sensitivity (mV/A)

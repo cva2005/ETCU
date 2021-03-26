@@ -57,8 +57,8 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_NO_RESET			0
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP			0.30f
-	#define SPEED_KI			0.01f
+	#define SPEED_KP			0.18f
+	#define SPEED_KI			0.015f
 	#define SPEED_KD			0.001f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
@@ -949,8 +949,8 @@ void init_PID (void) {
 }
 
 #define SPEED_LOOP_TIME		100 // дискретизаци€ по времени контура регулировани€ оборотов, мс
-#define TORQUE_MAX			400.0f // Ќм
-#define TORQUE_FACTOR		0.4f
+#define TORQUE_MAX			200.0f // Ќм
+#define TORQUE_FACTOR		0.2f
 #define SPEED_MAX			2000.0f
 #define SPEED_FACT			45.0f
 /*
@@ -967,7 +967,7 @@ void Speed_loop (void) {
 		if ((ACCEL_STATE >= 95.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
-			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX + torq_corr);
+			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
