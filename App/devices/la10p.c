@@ -50,17 +50,22 @@ void la10p_step(void) {
 			state = LA10P_READY;
 #else
 			state = LA10P_INIT_RUN;
-#endif
 			set(FORWARD_MOV, ON);
+#endif
 		} else if (state == LA10P_INIT_RUN) {
 			if (timers_get_time_left(err_time) == 0) {
 				la10p_error:
+				set(REVERS_MOV, OFF);
+				set(FORWARD_MOV, OFF);
 				state = LA10P_STOP_ERR;
 				return;
 			}
 			float32_t st_sens = STATE_SENS();
+			float32_t curr_sens = CURR_SENS_A;
 			if (st(FORWARD_MOV)) { // движение вперед
-				if (CURR_SENS_A > SENS_I_MAX) goto forw_stop;
+				if ((curr_sens > SENS_I_MAX) || (curr_sens < SENS_I_OFF)) {
+					goto forw_stop;
+				}
 				if (st_sens > SensMax) {
 					SensMax = st_sens;
 				} else {
@@ -76,7 +81,9 @@ void la10p_step(void) {
 					err_time = timers_get_finish_time(LA10P_ERR_TIME);
 				}
 			} else { // движение назад
-				if (CURR_SENS_A > SENS_I_MAX) goto revers_stop;
+				if ((curr_sens > SENS_I_MAX) || (curr_sens < SENS_I_OFF)) {
+					goto revers_stop;
+				}
 				if (st_sens < SensMin) {
 					SensMin = st_sens;
 #ifdef MODEL_OBJ
@@ -97,10 +104,11 @@ void la10p_step(void) {
 				}
 			}
 		} else { // state == LA10P_READY
-			if (CURR_SENS_A > SENS_I_MAX) goto la10p_error;
+			float32_t curr_sens = CURR_SENS_A;
+			if (curr_sens > SENS_I_MAX) goto la10p_error;
 			float32_t diff;
 #ifdef MODEL_OBJ
-			curr = (CURR_SENS_A * 1000.0);
+			curr = (curr_sens * 1000.0);
 			diff = STEP_TIME / FullTime;
 			diff *= SensMax - SensMin;
 			if (st(FORWARD_MOV)) { // движение вперед
@@ -122,8 +130,10 @@ void la10p_step(void) {
 				set(REVERS_MOV, ON);
 			} else {
 				if (st(FORWARD_MOV)) { // движение вперед
+					if (curr_sens < SENS_I_OFF) goto la10p_error;
 					if (diff < STEP_TIME / 2) set(FORWARD_MOV, OFF);
 				} else if (st(REVERS_MOV)) { // движение назад
+					if (curr_sens < SENS_I_OFF) goto la10p_error;
 					if (diff > -STEP_TIME / 2) set(REVERS_MOV, OFF);
 				}
 			}

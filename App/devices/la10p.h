@@ -48,6 +48,7 @@ typedef enum {
 #define CURR_SENS_mV		((CURR_SENS_VAL - CurrNull) / SENS_I_MUL)
 #define CURR_SENS_A			fabs(CURR_SENS_mV / SENS_I_mV_A)
 #define SENS_I_MAX			2.5f
+#define SENS_I_OFF			0.2f
 
 void la10p_init(void);
 void la10p_step(void);
