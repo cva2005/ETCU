@@ -25,15 +25,14 @@ typedef enum {
  */
 #define ST_LENGT			150 // длина штока
 #define ST_MOVE				20  // скорость перемещения штока [мм/сек]
-#ifdef MODEL_OBJ
+#ifdef MODEL_NO_SERVO
 	#define STATE_SENS()	StateVal
-	//#define STATE_SENS()	(float32_t)st(AI_T_OIL_OUT)
 #else
 	#define STATE_SENS()	(float32_t)st(AI_T_OIL_OUT)
 #endif
 #define FORWARD_MOV			DO_OIL_HEATER
 #define REVERS_MOV			DO_COOLANT_HEATER
-#define LA10P_FULL_TIME		(ST_LENGT * 1000 / ST_MOVE) // ms
+#define LA10P_FULL_TIME		(ST_LENGT * 1000 / ST_MOVE + 2000) // ms
 #define LA10P_ERR_TIME		LA10P_FULL_TIME
 #define LA10P_MIN_TIME		(LA10P_FULL_TIME - LA10P_FULL_TIME / 4)
 #define LA10P_MUL			5.00f
@@ -47,7 +46,7 @@ typedef enum {
 #define CURR_SENS_VAL		(float32_t)st(AI_P_MANIFOLD)
 #define CURR_SENS_mV		((CURR_SENS_VAL - CurrNull) / SENS_I_MUL)
 #define CURR_SENS_A			fabs(CURR_SENS_mV / SENS_I_mV_A)
-#define SENS_I_MAX			2.5f
+#define SENS_I_MAX			4.2f
 #define SENS_I_OFF			0.2f
 
 void la10p_init(void);

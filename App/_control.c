@@ -132,8 +132,13 @@ void signals_start_cfg (void) {
 	sig_cfg[DO_COOLANT_PUMP].fld.number=2;				//Сигнал: Насос ОЖ
 	//sig_cfg[DO_OIL_PUMP].fld.number=3;					//Сигнал: Насос масла
 	sig_cfg[DO_OIL_PUMP].fld.number=1;					//Сигнал: Насос масла (перемещено в BCU)
+#ifdef MODEL_OBJ
+	sig_cfg[DO_COOLANT_HEATER].fld.number=3;			//Сигнал: Нагреватель ОЖ
+	sig_cfg[DO_OIL_HEATER].fld.number=7;				//Сигнал: Нагреватель масла
+#else
 	sig_cfg[DO_COOLANT_HEATER].fld.number=4;			//Сигнал: Нагреватель ОЖ
 	sig_cfg[DO_OIL_HEATER].fld.number=5;				//Сигнал: Нагреватель масла
+#endif
 	sig_cfg[DO_FUEL_PUMP].fld.number=6;					//Сигнал: Включить ТНВД
 //настройка сигналов APS---------------------------------
 	for (cnt=AI_T_AIR; cnt<DO_EMERGANCY; cnt++) {
@@ -468,14 +473,14 @@ servo_stop_error:
 	la10p_st srv_st = la10p_state();
 	sg_st.ta.i.a[1] = (int32_t)srv_st;
 	sg_st.ta.i.a[0] = la10p_get_pos() * 1000;
-	if (srv_st != SERVO_READY) {
-		if (srv_st == SERVO_NOT_INIT) {
-			error.bit.servo_not_init = 1;
-		} else { // SERVO_STOP_ERR
+	if (srv_st != LA10P_READY) {
+		if (srv_st == LA10P_STOP_ERR) {
 			error.bit.servo_error = 1;
 			state.step = ST_STOP_ERR;
 			cmd.opr = ST_STOP_ERR;
 			sg_st.ta.i.a[0] = ERROR_CODE;
+		} else { // LA10P_NOT_INIT
+			error.bit.servo_not_init = 1;
 		}
 	}
 #else
@@ -525,19 +530,19 @@ void update_devices (void) {
 void read_keys (void) {
 	uint32_t time_all;
 
-	if (timers_get_time_left(time.key_delay)!=0) return;
+	if (timers_get_time_left(time.key_delay) != 0) return;
 	if (st(DI_PC_TEST_START)) {
-		cmd.opr=OPR_START_TEST;
-		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
-		time_all=st(AI_PC_DURATION);
-		time_all=st(AI_PC_DURATION)*60*1000;
-		time.all=timers_get_finish_time(time_all);
+		cmd.opr = OPR_START_TEST;
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
+		time_all = st(AI_PC_DURATION);
+		time_all = st(AI_PC_DURATION) * 60 * 1000;
+		time.all = timers_get_finish_time(time_all);
 	}
 	if (st(DI_PC_TEST_STOP)) {
-		cmd.opr=OPR_STOP_TEST;
+		cmd.opr = OPR_STOP_TEST;
 		if (error.bit.servo_error) la10p_init();
-		error.dword=0;
-		time.key_delay=timers_get_finish_time(st(CFG_KEY_DELAY));
+		error.dword = 0;
+		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
 }
 
