@@ -1,9 +1,3 @@
-/*
- * main_app.c
- *
- *  Created on: 10 дек. 2015 г.
- *      Author: Перчиц А.Н.
- */
 #include "main_app.h"
 //#include "fatfs.h"
 //#include "mxconstants.h"
@@ -21,6 +15,7 @@
 #include "can_2.h"
 #include "canopen.h"
 #include "modbus.h"
+#include "J1939.h"
 #include "servotech_link.h"
 #include "pc_link.h"
 #include "bcu.h"
@@ -32,6 +27,7 @@
 #include "t46.h"
 #include "_control.h"
 #include "timers.h"
+#include "mu110_6U.h"
 #include "servo.h"
 #include "la10p.h"
 
@@ -52,14 +48,18 @@ void main_app (void) {
 	rs485_1_init(38400);
 	rs485_2_init(115200);
 	wifi_hf_init(115200);//wifi_hf_init(460800);
+#if SPSH_20_CONTROL
 	can_1_init(CAN_1_SPEED_500K);
+#elif ECU_TSC1_CONTROL
+	can_1_init(CAN_1_SPEED_250K);
+#endif
 	can_2_init(CAN_2_SPEED_250K);
 	pulse_in_init(1);
 	pulse_in_init(2);
 	pulse_in_init(3);
 	ds2482_init();
 	modbus_init();
-#ifdef SPSH_CONTROL
+#if SPSH_CONTROL
 	servotech_link_init(1);
 #endif
 	CanOpen_init(2);
@@ -77,6 +77,8 @@ void main_app (void) {
 #if SPSH_CONTROL
 		pc_link_step();
 		spsh20_step();
+#elif ECU_CONTROL
+		mu6u_step();
 #elif SERVO_CONTROL
 		servo_step();
 #elif LA10P_CONTROL
@@ -90,7 +92,7 @@ void main_app (void) {
 #ifdef LOCAL_TEMP
 		ds18b20_step();
 #endif
-		nl_3dpas_step();
+		//nl_3dpas_step();
 #ifdef TORQ_DRIVER
 		t46_step();
 #endif

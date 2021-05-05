@@ -3,6 +3,7 @@
 #include "arm_math.h"
 #include "J1939.h"
 
+#define SPEED_LOOP_TIME		TSC1_TX_RATE
 #define ECU_CH				10
 #define DAC_OUT_NULL		65  // минимальное значение выхода: 5В * 13%
 #define DAC_OUT_MIN			120  // значение выхода в режиме ХХ: 5В * 25%
@@ -29,10 +30,12 @@
 #define SPD_MIN				700.0f
 #define SPD_DIFF			(SPD_MAX - SPD_MIN)
 
+void EcuInit (void);
 bool ControlState (void);
 uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
 void EcuPedControl (float32_t out, bool start);
 void SavePedalPosition (int8_t th);
+void SaveEngineCtr1 (PGN_61444_t * data);
 void SaveEngineTemp (PGN_65262_t* data);
 void SaveEngineLP (PGN_65263_t* data);
 void SaveFuelRate (PGN_65266_t* data);
@@ -42,9 +45,12 @@ void SaveEngineHours (PGN_65253_t* data);
 int32_t EcuPedalPos (void);
 uint8_t EcuPedError (void);
 int32_t ecu_get_data (uint8_t ch);
+void SaveEngineSpeed (int16_t pos);
+float32_t GetEcuSpeed (void);
+int8_t GetCurrSA (void);
+
 #if 0
 void SaveFuelLevel (int8_t lev);
-void SaveEngineSpeed (int16_t pos);
 void SaveRailPressure (int16_t press);
 void SaveTorqPercent (int8_t perc);
 #endif

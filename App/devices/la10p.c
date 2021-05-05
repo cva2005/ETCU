@@ -11,7 +11,7 @@ static float32_t SensMax, SensMin;
 static float32_t TaskVal = 0;
 static float32_t CurrNull;
 static float32_t FullTime;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 static float32_t StateVal = 0;
 #endif
 int32_t curr;
@@ -26,7 +26,7 @@ int32_t curr;
  * питани€ привода.
  */
 void la10p_init(void) {
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 	SensMax = SENS_MAX_VAL;
 	SensMin = SENS_MIN_VAL;
 	FullTime = LA10P_FULL_TIME;
@@ -40,44 +40,45 @@ void la10p_init(void) {
 }
 
 void la10p_step(void) {
+	int32_t temp;
 	if (timers_get_time_left(step_time) == 0) {
 		step_time = timers_get_finish_time(STEP_TIME);
 		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
 			return;
 		} else if (state == LA10P_NOT_INIT) {
 			CurrNull = CURR_SENS_VAL;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 			state = LA10P_READY;
 #else
 			state = LA10P_INIT_RUN;
-			set(FORWARD_MOV, ON);
+			FORW_RUN();
 #endif
 		} else if (state == LA10P_INIT_RUN) {
 			if (timers_get_time_left(err_time) == 0) {
 				la10p_error:
-				set(REVERS_MOV, OFF);
-				set(FORWARD_MOV, OFF);
+				REVR_STOP();
+				FORW_STOP();
 				state = LA10P_STOP_ERR;
 				return;
 			}
 			float32_t st_sens = STATE_SENS();
 			float32_t curr_sens = CURR_SENS_A;
-			if (st(FORWARD_MOV)) { // движение вперед
-				if ((curr_sens > SENS_I_MAX) || (curr_sens < SENS_I_OFF)) {
+			if (FORW_MOV) { // движение вперед
+				if ((curr_sens > SENS_I_MAX) /*|| (curr_sens < SENS_I_OFF)*/) {
 					goto forw_stop;
 				}
 				if (st_sens > SensMax) {
 					SensMax = st_sens;
 				} else {
 					forw_stop:
-					set(FORWARD_MOV, OFF);
+					FORW_STOP();
 					// ToDo: в крайнем выдвинутом положении сразу назад
 					if ((SensMax == SENS_MIN_VAL) || // не двигались
 						(SensMax > SENS_MAX_VAL) || // велико показ. датчика
 						(SensMax < SENS_MAX_VAL / 4)) { // мало показ. датчика
 						goto la10p_error;
 					}
-					set(REVERS_MOV, ON);
+					REVR_RUN();
 					FullTime = 0;
 					err_time = timers_get_finish_time(LA10P_ERR_TIME);
 				}
@@ -99,7 +100,7 @@ void la10p_step(void) {
 						goto la10p_error;
 					}
 					state = LA10P_READY;
-					set(REVERS_MOV, OFF);
+					REVR_STOP();
 					// ToDo: коррекци€ диапазона 10...90%
 				}
 			}
@@ -108,7 +109,7 @@ void la10p_step(void) {
 			curr = (curr_sens * 1000.0);
 			if (curr_sens > SENS_I_MAX) goto la10p_error;
 			float32_t diff;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 			diff = STEP_TIME / FullTime;
 			diff *= SensMax - SensMin;
 			if (st(FORWARD_MOV)) { // движение вперед
@@ -123,18 +124,18 @@ void la10p_step(void) {
 			diff /= SensMax - SensMin;
 			diff *= FullTime;
 			if (diff > RELE_TIME) {
-				set(REVERS_MOV, OFF);
-				set(FORWARD_MOV, ON);
+				REVR_STOP();
+				FORW_RUN();
 			} else if (diff < -RELE_TIME) {
-				set(FORWARD_MOV, OFF);
-				set(REVERS_MOV, ON);
+				FORW_STOP();
+				REVR_RUN();
 			} else {
-				if (st(FORWARD_MOV)) { // движение вперед
+				if (FORW_MOV) { // движение вперед
 					//if (curr_sens < SENS_I_OFF) goto la10p_error;
-					if (diff < STEP_TIME / 2) set(FORWARD_MOV, OFF);
-				} else if (st(REVERS_MOV)) { // движение назад
+					if (diff < STEP_TIME / 2) FORW_STOP();
+				} else if (REVR_MOV) { // движение назад
 					//if (curr_sens < SENS_I_OFF) goto la10p_error;
-					if (diff > -STEP_TIME / 2) set(REVERS_MOV, OFF);
+					if (diff > -STEP_TIME / 2) REVR_STOP();
 				}
 			}
 		}

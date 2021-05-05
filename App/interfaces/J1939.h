@@ -342,35 +342,48 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define ADDR_CL_RES		60928
 #define ENG_GAS			61450
 
-// Source Address ID
-#define Engine1				0
-#define Engine2				1
-#define Turbocharger		2
-#define Transmission1		3
-#define Transmission2		4
-#define ShiftConsole1		5
-#define ShiftConsole2		6
-#define PowerTakeOff		7
-#define AxleSteering		8
-#define AxleDrive1			9
-#define AxleDrive2			10
-#define SRC_ADDR			0x0b
+#define ADDR_HOURS			33
+#define ADDR_NOT_CLAIMED 	254
 
+// Source Address ID for TSC1 control
+#define ADDR_TECU_1			03	// Transmission #1
+#define ADDR_TECU_2			04	// Transmission #2
+#define ADDR_CUMMINS		07	// Cummins/PACCAR like
+#define ADDR_BR_CNTR		11	// Brakes - System Controller
+#define ADDR_CRUISE			17	// Cruise Control
+#define ADDR_VOLVO			230	// Volvo engine
+#define ADDR_DETROIT		231	// Detroit Diesel likes
+#define ADDR_SA_232			232
+#define ADDR_SA_233			233
+#define ADDR_VOLVO_M		234	// Volvo Penta marine engines
+#define ADDR_SA_235			235
+#define ADDR_SA_236			236
+#define ADDR_SA_237			237
+#define ADDR_SA_238			238
+#define ADDR_SA_239			239
+#define ADDR_SA_240			240
+#define ADDR_SA_241			241
+#define ADDR_SA_242			242
+#define ADDR_SA_243			243
+#define ADDR_SA_244			244
+#define ADDR_SA_245			245
+#define ADDR_SA_246			246
+#define ADDR_SA_247			247
+#define ADDR_NULL			254
+#define ADDR_GLOBAL			255
+
+#define SA_VALID_TIME		200 // Source Address valid interval, ms
 #define E_HOURS_TIME		1000 // EngineHours request interval, ms
 #define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms
-#define ADDR_GLOBAL			0xff
-#define ADDR_NOT_CLAIMED 	0xfe
-#define ADDR_NULL			0xef
-#define ADDR_HOURS			0x21
 
 #define PRIORITY_HIGH 		0
 #define PRIORITY_TSC1 		3
 #define PRIORITY_DEFAULT	6
 #define PRIORITY_LOW		7
 
-void canJ1939_init(void);
 void J1939_step (void);
-uint8_t TorqueSpeedControl (int8_t trq, uint16_t spd);
+bool j1939TSC1control (void);
+uint8_t TorqueSpeedControl (uint8_t trq, uint16_t spd);
 bool J1939_error (void);
 uint8_t HoursRequest (void);
 

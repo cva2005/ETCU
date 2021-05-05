@@ -71,8 +71,10 @@
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
-									<listOptionValue builtIn="false" value="LA10P_CONTROL=1"/>
+									<listOptionValue builtIn="false" value="LA10P_CONTROL=0"/>
 									<listOptionValue builtIn="false" value="SERVO_CONTROL=0"/>
+									<listOptionValue builtIn="false" value="MODEL_NO_SERVO=0"/>
+									<listOptionValue builtIn="false" value="ECU_TSC1_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -112,7 +114,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="App/devices/ecu.c|App/devices/mv110_8A.c|App/devices/mu110_6U.c|App/devices/agm501.c|Src/bsp_driver_sd.c|Src/fatfs.c|Drivers/CMSIS/Lib/GCC|Drivers/CMSIS/Lib/ARM|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="App/devices/nl_3dpas.c|App/devices/la10pwm.c|App/devices/mv110_8A.c|App/devices/agm501.c|Src/bsp_driver_sd.c|Src/fatfs.c|Drivers/CMSIS/Lib/GCC|Drivers/CMSIS/Lib/ARM|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="BasicMathFunctions|CommonTables|FilteringFunctions|SupportFunctions" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers/CMSIS/DSP_Lib/Source"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Drivers/CMSIS/Lib/ARM"/>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Drivers/CMSIS/Lib/GCC"/>
@@ -229,7 +231,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="App/devices/ecu.c|App/devices/mv110_8A.c|App/devices/mu110_6U.c|App/devices/agm501.c|Src/bsp_driver_sd.c|Src/fatfs.c|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="App/devices/nl_3dpas.c|App/devices/la10pwm.c|App/devices/mv110_8A.c|App/devices/agm501.c|Src/bsp_driver_sd.c|Src/fatfs.c|App/devices/t36.c|Drivers/CMSIS/DSP_Lib" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry excluding="BasicMathFunctions|CommonTables|FilteringFunctions|SupportFunctions" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers/CMSIS/DSP_Lib/Source"/>
 					</sourceEntries>
 				</configuration>

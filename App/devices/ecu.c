@@ -6,9 +6,11 @@
 #include "t46.h"
 #include "ecu.h"
 
-int32_t PedalPos = 0;
+static int32_t PedalPos = 0;
 static int32_t Data[ECU_CH];
 static bool TSC1state = false;
+static float32_t EcuSpeed;
+static int8_t CurrSA;
 
 /*
 spn1483 - Source Address of Controlling Device for Engine Control - The source address of the SAE J1939
@@ -62,14 +64,24 @@ uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
 	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
 	if (sp_w) TSC1state = true;
 	else TSC1state = false;
-	int8_t tq_b = (int8_t)(trq * TORQUE_LIM) + TORQUE_OFFSET;
-	PedalPos = (int32_t)(((spd - SPD_MIN) / (SPD_DIFF)) * 100000.0); // положение сервопривода %
+	uint8_t tq_b = (uint8_t)(trq * TORQUE_LIM) + TORQUE_OFFSET;
+	PedalPos = (uint32_t)(((spd - SPD_MIN) / (SPD_DIFF)) * 100000.0); // положение сервопривода %
 	return TorqueSpeedControl(tq_b, sp_w);
 }
 
 bool ControlState (void) {
 	return TSC1state;
 }
+
+bool EcuTSC1Active (void) {
+	return j1939TSC1control();
+}
+
+void SaveEngineCtr1 (PGN_61444_t *data) {
+	EcuSpeed = (float32_t)data->EngineSpeed * SPEED_RESOL;
+	CurrSA = data->SourceAddress;
+}
+
 void EcuPedControl (float32_t out, bool start) {
 	uint16_t out_min;
 	if (start) out_min = DAC_OUT_MIN;
@@ -90,7 +102,7 @@ int32_t EcuPedalPos (void) {
 
 void SaveEngineTemp (PGN_65262_t* data) {
 	float32_t f = (float32_t)data->Oil_T * OIL_T_WEIGHT;
-	Data[0] =  (int32_t)((f - OIL_T_OFFSET) * 1000.0); // -273 to 1734.96875 deg C (0.03125 deg C/bit)
+	Data[0] = (int32_t)((f - OIL_T_OFFSET) * 1000.0); // -273 to 1734.96875 deg C (0.03125 deg C/bit)
 	Data[9] = (data->Coolant_T - OIL_C_OFFSET) * 1000; // -40 to 210 deg C (1 deg C/bit)
 }
 
@@ -124,14 +136,19 @@ void SaveEngineHours (PGN_65253_t* data) {
 	Data[8] = data->TotalHours; // Total Hours
 }
 
+float32_t GetEcuSpeed (void) {
+	return EcuSpeed;
+}
+
+int8_t GetCurrSA (void) {
+	return CurrSA;
+}
+
 #if 0
 void SaveFuelLevel (int8_t lev) {
 }
 
 void SavePedalPosition (int8_t pos) {
-}
-
-void SaveEngineSpeed (int16_t pos) {
 }
 
 void SaveTorqPercent (int8_t perc) {

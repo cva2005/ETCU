@@ -25,7 +25,7 @@ typedef enum {
  */
 #define ST_LENGT			150 // длина штока
 #define ST_MOVE				20  // скорость перемещения штока [мм/сек]
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 	#define STATE_SENS()	StateVal
 #else
 	#define STATE_SENS()	(float32_t)st(AI_T_OIL_OUT)
@@ -48,6 +48,38 @@ typedef enum {
 #define CURR_SENS_A			fabs(CURR_SENS_mV / SENS_I_mV_A)
 #define SENS_I_MAX			4.2f
 #define SENS_I_OFF			0.2f
+
+#if 1
+#define FORW_RUN()			set(FORWARD_MOV, ON)
+#define FORW_STOP()			set(FORWARD_MOV, OFF)
+#define REVR_RUN()			set(REVERS_MOV, ON)
+#define REVR_STOP()			set(REVERS_MOV, OFF)
+#define FORW_MOV			st(FORWARD_MOV)
+#define REVR_MOV			st(REVERS_MOV)
+#else
+#define RUN					GPIO_NOPULL
+#define STOP				GPIO_PULLUP
+#define FORW_PIN			14
+#define REVR_PIN			13
+#define MOV_CONTRL			GPIOE->PUPDR
+
+#define FORW_RUN()			temp = MOV_CONTRL;\
+		temp &= ~(GPIO_PUPDR_PUPDR0 << (FORW_PIN * 2));\
+		MOV_CONTRL = temp;
+#define FORW_STOP()			temp = MOV_CONTRL;\
+		temp &= ~(GPIO_PUPDR_PUPDR0 << (FORW_PIN * 2));\
+		temp |= (1 << (FORW_PIN * 2));\
+		MOV_CONTRL = temp;
+#define	REVR_RUN()			temp = MOV_CONTRL;\
+		temp &= ~(GPIO_PUPDR_PUPDR0 << (REVR_PIN * 2));\
+		MOV_CONTRL = temp;
+#define REVR_STOP()			temp = MOV_CONTRL;\
+		temp &= ~(GPIO_PUPDR_PUPDR0 << (REVR_PIN * 2));\
+		temp |= (1 << (REVR_PIN * 2));\
+		MOV_CONTRL = temp;
+#define FORW_MOV			!(MOV_CONTRL & (1 << (FORW_PIN * 2)))
+#define REVR_MOV			!(MOV_CONTRL & (1 << (REVR_PIN * 2)))
+#endif
 
 void la10p_init(void);
 void la10p_step(void);

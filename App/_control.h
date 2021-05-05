@@ -85,6 +85,14 @@ typedef struct {
 #define ETCU_AI_TEMP7		27
 #define ETCU_AI_TEMP8		28
 
+#ifndef NO_SAFE
+#define SAFE	safe < SAFE_MAX
+#define SFREQ	sreq < SFREQ_MAX
+#else
+#define SAFE	1
+#define SFREQ	1
+#endif
+
 void control_init (void); //инициализация системы управления
 void control_step (void); //1 шаг алгоритма управления
 void signals_start_cfg (void);
