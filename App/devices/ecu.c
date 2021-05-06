@@ -8,9 +8,9 @@
 
 static int32_t PedalPos = 0;
 static int32_t Data[ECU_CH];
-static bool TSC1state = false;
-static float32_t EcuSpeed;
-static int8_t CurrSA;
+static bool CruiseState = false;
+static float32_t EcuSpeed = 0;
+static int8_t CurrSA = /*0*/ADDR_VOLVO_M; // ToDo: set to NULL
 
 /*
 spn1483 - Source Address of Controlling Device for Engine Control - The source address of the SAE J1939
@@ -60,21 +60,30 @@ Override Control Mode Priority: If medium or low priority is received, the reque
 by Accelerator Pedal in the DLN1 message. If highest or high priority is received, the
 normal accelerator pedal has no effect.
  */
-uint8_t EcuTSC1Control (float32_t spd, float32_t trq) {
+uint8_t EcuCruiseControl (float32_t spd, float32_t trq) {
 	uint16_t sp_w = (uint16_t)(spd / SPEED_RESOL);
-	if (sp_w) TSC1state = true;
-	else TSC1state = false;
+	if (sp_w) CruiseState = true;
+	else CruiseState = false;
 	uint8_t tq_b = (uint8_t)(trq * TORQUE_LIM) + TORQUE_OFFSET;
 	PedalPos = (uint32_t)(((spd - SPD_MIN) / (SPD_DIFF)) * 100000.0); // положение сервопривода %
 	return TorqueSpeedControl(tq_b, sp_w);
 }
 
-bool ControlState (void) {
-	return TSC1state;
+bool EcuCruiseError (void) {
+	return j1939TSC1error();
 }
 
-bool EcuTSC1Active (void) {
-	return j1939TSC1control();
+bool EcuCruiseState (void) {
+	return CruiseState;
+}
+
+bool EcuCruiseActive (void) {
+	return j1939TSC1active();
+}
+
+void EcuCruiseReset (void) {
+	if (j1939TSC1active() == false)
+		j1939TSC1reset();
 }
 
 void SaveEngineCtr1 (PGN_61444_t *data) {

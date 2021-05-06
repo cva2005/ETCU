@@ -436,6 +436,16 @@ void read_devices (void) {
 #endif
 //----данные сервопривода
 #if ECU_TSC1_CONTROL
+	if (EcuCruiseError() == false) {
+		//sg_st.ta.i.a[0] = EcuPedalPos();
+	} else {
+		sg_st.ta.i.a[0] = 0;
+		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
+		error.bit.err_cruise = 1;
+		state.step = ST_STOP_ERR;
+		cmd.opr = OPR_STOP_TEST;
+		EcuCruiseReset();
+	}
 #elif ECU_CONTROL
 	if (EcuPedError() == 0) {
 		sg_st.ta.i.a[0] = EcuPedalPos();
@@ -552,7 +562,11 @@ void read_keys (void) {
 	}
 	if (st(DI_PC_TEST_STOP)) {
 		cmd.opr = OPR_STOP_TEST;
+#if ECU_TSC1_CONTROL
+		/*if (error.bit.err_cruise) EcuCruiseReset();*/
+#elif LA10P_CONTROL
 		if (error.bit.servo_error) la10p_init();
+#endif
 		error.dword = 0;
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
@@ -978,14 +992,16 @@ void work_stop (void) {
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
 #if ECU_TSC1_CONTROL
-	if (timers_get_time_left(time.alg) == 0) { // останов
-		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		if (ControlState()) {
-			StopCount = TSC1_STOP_RETRY;
-		}
-		if (StopCount) {
-			StopCount--;
-			EcuTSC1Control(0.0f, 0.0f);
+	if (!error.bit.err_cruise) {
+		if (timers_get_time_left(time.alg) == 0) { // останов
+			time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
+			if (EcuCruiseState()) {
+				StopCount = TSC1_STOP_RETRY;
+			}
+			if (StopCount) {
+				StopCount--;
+				EcuCruiseControl(0.0f, 0.0f);
+			} else EcuCruiseReset();
 		}
 	}
 #else
@@ -1065,7 +1081,7 @@ void Speed_loop (void) {
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		torq_corr = (Torque_Out / TORQUE_MAX);
 #ifdef ECU_TSC1_CONTROL
-		EcuTSC1Control(task, torq_corr);
+		EcuCruiseControl(task, torq_corr);
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);

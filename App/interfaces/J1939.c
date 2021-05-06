@@ -6,16 +6,17 @@
 void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id);
 static stime_t err_time, eh_time, sa_time;
 static bool time_out = false;
-static const uint8_t AddrTabl[] = {
+static const int8_t AddrTabl[] = {
 		ADDR_TECU_1, ADDR_TECU_2, ADDR_CUMMINS, ADDR_BR_CNTR, ADDR_CRUISE,
 		ADDR_VOLVO, ADDR_DETROIT, ADDR_SA_232, ADDR_SA_233, ADDR_VOLVO_M,
 		ADDR_SA_235, ADDR_SA_236, ADDR_SA_237, ADDR_SA_238, ADDR_SA_239,
 		ADDR_SA_240, ADDR_SA_241, ADDR_SA_242, ADDR_SA_243, ADDR_SA_244,
 		ADDR_SA_245, ADDR_SA_246, ADDR_SA_247};
-#define ADDR_MAX sizeof(AddrTabl) / sizeof(typeof(AddrTabl))
+#define ADDR_MAX sizeof(AddrTabl) / sizeof(typeof(AddrTabl[0]))
 static uint32_t SrcAddr = 0;
 static bool CrcUse = false;
 static bool AddrSel = false;
+static bool CheckAddr = false;
 static uint8_t MessCnt;
 
 void canJ1939_init (void) {
@@ -35,8 +36,18 @@ void canJ1939_init (void) {
 	eh_time = timers_get_finish_time(E_HOURS_TIME);
 }
 
-bool j1939TSC1control (void) {
+bool j1939TSC1active (void) {
 	return ((SrcAddr != 0) && AddrSel);
+}
+
+bool j1939TSC1error (void) {
+	return ((SrcAddr == 0) && AddrSel);
+}
+
+void j1939TSC1reset (void) {
+	SrcAddr = 0;
+	AddrSel = false;
+	CrcUse = false;
 }
 
 void J1939_step (void) {
@@ -60,8 +71,9 @@ void J1939_step (void) {
 		eh_time = timers_get_finish_time(E_HOURS_TIME);
 		HoursRequest();
 	}
-	if (!AddrSel) {
+	if (!AddrSel && CheckAddr) {
 		if (timers_get_time_left(sa_time) == 0) {
+			CheckAddr = false;
 			int8_t addr = GetCurrSA();
 			if (AddrTabl[SrcAddr] == addr) {
 				SrcAddr = addr;
@@ -99,7 +111,6 @@ void j1939Receive (uint8_t* data, uint8_t len, J1939_ID_t* id) {
 		SaveInletExhaust((PGN_65270_t *)data);
 		break;
 	case 61444: // Electronic Engine Controller 1 (25-50 мсек)
-		SaveEngineSpeed(((PGN_61444_t *)data)->EngineSpeed);
 		SaveEngineCtr1((PGN_61444_t *)data);
 		break;
 #if 0
@@ -136,8 +147,11 @@ uint8_t TorqueSpeedControl (uint8_t trq, uint16_t spd) {
 	PGN_00000_t pgn; J1939_ID_t id; uint8_t cc;
 	id.PGN.FULL = TSC1; // Torque/Speed Control 1
 	if (!AddrSel) {
+		if (!CheckAddr) {
+			sa_time = timers_get_finish_time(SA_VALID_TIME);
+			CheckAddr = true;
+		}
 		id.SA = AddrTabl[SrcAddr];
-		sa_time = timers_get_finish_time(SA_VALID_TIME);
 	} else id.SA = SrcAddr;
 	uint32_t id_32 = *((uint32_t *)&id);
 	id_32 |= PRIORITY_TSC1 << 26;

@@ -31,8 +31,11 @@
 #define SPD_DIFF			(SPD_MAX - SPD_MIN)
 
 void EcuInit (void);
-bool ControlState (void);
-uint8_t EcuTSC1Control (float32_t spd, float32_t trq);
+bool EcuCruiseState (void);
+uint8_t EcuCruiseControl (float32_t spd, float32_t trq);
+bool EcuCruiseActive (void);
+void EcuCruiseReset (void);
+bool EcuCruiseError (void);
 void EcuPedControl (float32_t out, bool start);
 void SavePedalPosition (int8_t th);
 void SaveEngineCtr1 (PGN_61444_t * data);

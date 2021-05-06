@@ -74,11 +74,13 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#if SPSH_CONTROL
-		pc_link_step();
-		spsh20_step();
+#if ECU_TSC1_CONTROL
+		J1939_step();
 #elif ECU_CONTROL
 		mu6u_step();
+#elif SPSH_CONTROL
+		pc_link_step();
+		spsh20_step();
 #elif SERVO_CONTROL
 		servo_step();
 #elif LA10P_CONTROL

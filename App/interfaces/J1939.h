@@ -372,7 +372,7 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define ADDR_NULL			254
 #define ADDR_GLOBAL			255
 
-#define SA_VALID_TIME		200 // Source Address valid interval, ms
+#define SA_VALID_TIME		1000 // Source Address valid interval, ms
 #define E_HOURS_TIME		1000 // EngineHours request interval, ms
 #define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms
 
@@ -382,9 +382,11 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define PRIORITY_LOW		7
 
 void J1939_step (void);
-bool j1939TSC1control (void);
+bool j1939TSC1active (void);
+void j1939TSC1reset (void);
 uint8_t TorqueSpeedControl (uint8_t trq, uint16_t spd);
 bool J1939_error (void);
+bool j1939TSC1error (void);
 uint8_t HoursRequest (void);
 
 #endif // #ifndef J1939_H

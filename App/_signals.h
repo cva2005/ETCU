@@ -467,6 +467,7 @@ typedef struct
 			uint8_t emergancy_stop:1; //нажать "Аварийный стоп"
 			uint8_t servo_not_init:1; //калибровка сервопривода
 			uint8_t servo_error:1; //ошибка сервопривода
+			uint8_t err_cruise:1; //ошибка управления по Круиз контроль
 		} bit;
 		uint8_t byte[4];
 		uint16_t word[2];
