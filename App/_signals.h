@@ -67,15 +67,23 @@ enum {
 	CFG_TIMOUT_SET_TORQUE,	//Время установки заданного крутящего моента
 #endif
 //сигналы ETCU
+#if ECU_CONTROL
+	DO_STARTER,				//Сигнал: Включено зажигание
+	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
+	DO_COOLANT_PUMP,		//Сигнал:
+	DO_OIL_PUMP,			//Сигнал:
+	DO_COOLANT_HEATER,		//Сигнал: Запуск Двигателя
+	DO_OIL_HEATER,			//Сигнал:
+	DO_FUEL_PUMP,			//Сигнал: Возбуждение Генератора
+#else
 	DO_STARTER,				//Сигнал: Стратер
 	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
-
 	DO_COOLANT_PUMP,		//Сигнал: Насос ОЖ
 	DO_OIL_PUMP,			//Сигнал: Насос масла
 	DO_COOLANT_HEATER,		//Сигнал: Нагреватель ОЖ
 	DO_OIL_HEATER,			//Сигнал: Нагреватель масла
 	DO_FUEL_PUMP,			//Сигнал: Включить ТНВД
-
+#endif
 	AI_T_EXHAUST,			//Аналоговый: Температура выхлопных газов
 	AI_T_COOLANT_IN,		//Аналоговый: Температура ОЖ на входе
 	AI_T_COOLANT_OUT,		//Аналоговый: Температура ОЖ на выходе
@@ -218,6 +226,15 @@ enum {
 #define AI_PC_SPEED_KP		(st(AI_PC_SPEED_KP_KI) >> 16)
 #define AI_PC_TORQUE_KI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
 #define AI_PC_TORQUE_KP		(st(AI_PC_TORQUE_KP_KI) >> 16)
+#define ENGINE_KEY_TASK		DI_PC_FIRE_ALARM // Сигнал: Включить зажигание
+#define ENGINE_ON_LED		DO_PC_STARTER // Сигнал: Включено зажигание
+#define ECU_ERROR_LED		DO_PC_OIL_HEATER // Сигнал: Лампа "АВАРИЯ" ЭБУ
+#define GEN_EXC_LED			DO_PC_FUEL_PUMP // Сигнал: Возбуждение Генератора
+#define ENGINE_RELAY		DO_STARTER // Сигнал: Включено зажигание
+#define GEN_EXC_RELAY		DO_FUEL_PUMP // Сигнал: Возбуждение Генератора
+#define START_RELAY			DO_COOLANT_HEATER // Сигнал: Запустить Двигатель
+#define SAFE_MAX			AO_PC_ROTATE
+#define SFREQ_MAX			AI_PC_ROTATE
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct
 	{
@@ -454,8 +471,7 @@ typedef struct
 			uint8_t no_bcu :1; //нет связи с модулем управления гидротормозом
 			uint8_t no_fc :1; //нет связи с преобразователем часоты
 			uint8_t no_ta :1; //нет связи с сервоприводом педали газа
-			uint8_t no_cdu :1; //нет свзяи с ЗРМ
-			//uint8_t no_ppu :1; //нет связи с ППУ
+			uint8_t no_eacc :1; //нет связи с эмулятором педали газа (MVU6)
 			uint8_t no_trq :1; //нет связи с датчиком момента
 			uint8_t err_fc :1; //ошибка в работе преобразователя частоты
 			uint8_t err_akb:1; //низкое напряжение АКБ, запуск стартера невозможен
@@ -467,14 +483,12 @@ typedef struct
 			uint8_t emergancy_stop:1; //нажать "Аварийный стоп"
 			uint8_t servo_not_init:1; //калибровка сервопривода
 			uint8_t servo_error:1; //ошибка сервопривода
-			uint8_t err_cruise:1; //ошибка управления по Круиз контроль
+			uint8_t no_cruise:1; //ошибка управления по Круиз-Контроль
 		} bit;
-		uint8_t byte[4];
-		uint16_t word[2];
 		uint32_t dword;
 	} error_t;
 
-	#ifdef CDU //значения сигнала "AI_CU_ERR",  "AI_MP_ERR", "AO_PC_ERR_MP", "AO_PC_ERR_CU"
+#ifdef CDU //значения сигнала "AI_CU_ERR",  "AI_MP_ERR", "AO_PC_ERR_MP", "AO_PC_ERR_CU"
 	#define	ERR_OVERLOAD		1 //перегрузка тока или напряжения при заряде
 	#define	ERR_DISCH_PWR		2 //перегрузка тока или няпряжения при разряде
 	#define ERR_CONNECTION 		3 //неверное подключение АКБ
@@ -493,7 +507,7 @@ typedef struct
 	#define	CU_STOP				0 //ЗРМ остановлен
 	#define	CU_CHARGE			1 //ЗРМ заряд
 	#define	CU_DISCHARGE		2 //ЗРМ разряд
-	#endif
+#endif
 
 	typedef enum
 		{

@@ -1,13 +1,12 @@
-/*
- * _control.h
- *
- *  Created on: 12 янв. 2016 г.
- *      Author: Перчиц А.Н.
- */
-
 #ifndef APP__CONTROL_H_
 #define APP__CONTROL_H_
 #include "_signals.h"
+
+typedef enum {
+	TSC1Control	 = 0,
+	EaccControl	 = 1,
+	ServoControl = 2
+} SpeedCntrl_t;
 
 #define ERROR_CODE					0x7FFFFFFF
 #define DEF_KEY_DELAY				500		//Антидребезг на кнопки
@@ -28,6 +27,7 @@
 
 #define OPR_STOP_TEST		0
 #define OPR_START_TEST		1
+#define OPR_KEY_ON			2
 
 typedef struct {
 	uint8_t opr;
@@ -53,6 +53,7 @@ typedef struct {
 #define ADR_NL_3DPAS 1	//Адрес ModBus датчика параметров атмосферы NL-3DPAS
 #define ADR_T46 	1	//Адрес ModBus датчика крутящего момента
 #define ADR_CDU		1	//Адрес CDUlink зарядно-разрядного устйроства
+#define ADR_MU6U 	2	//Адрес ModBus эмулятора педали газа
 
 /* расположение аналоговых сигналов ETCU */
 #define ETCU_AI_FUEL1		0

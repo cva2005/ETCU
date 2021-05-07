@@ -323,7 +323,6 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 } PGN_65276_t;
 #pragma pack()
 
-#define J1939_ERR_TIME		500 // , мс
 #define PGN_60928 60928 << 8
 #define PGN_61443 61443 << 8
 #define PGN_61444 61444 << 8
@@ -351,6 +350,9 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define ADDR_CUMMINS		07	// Cummins/PACCAR like
 #define ADDR_BR_CNTR		11	// Brakes - System Controller
 #define ADDR_CRUISE			17	// Cruise Control
+#define ADDR_SCKE			27	// SCANIA TSC1-KE
+#define ADDR_BODY			33	// body controller
+#define ADDR_MNGM			39	// management computer #1
 #define ADDR_VOLVO			230	// Volvo engine
 #define ADDR_DETROIT		231	// Detroit Diesel likes
 #define ADDR_SA_232			232
@@ -372,9 +374,10 @@ typedef struct PGN_65276 { // Dash Display (1000 мсек)
 #define ADDR_NULL			254
 #define ADDR_GLOBAL			255
 
-#define SA_VALID_TIME		1000 // Source Address valid interval, ms
+#define J1939_ERR_TIME		500 // , мс
+#define SA_VALID_TIME		200  // Source Address valid interval, ms
 #define E_HOURS_TIME		1000 // EngineHours request interval, ms
-#define E_AIR_TIME			100 // Engine Gas Flow Rate request interval, ms
+#define E_AIR_TIME			100  // Engine Gas Flow Rate request interval, ms
 
 #define PRIORITY_HIGH 		0
 #define PRIORITY_TSC1 		3

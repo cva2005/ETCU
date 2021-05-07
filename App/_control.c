@@ -52,6 +52,8 @@ void init_obj (void);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
+SpeedCntrl_t SpeedCntrl = TSC1Control;
+bool CntrlDevSel = false;
 
 #ifdef MODEL_OBJ
 	#define SPEED_KP			2.20f
@@ -70,9 +72,7 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #endif
 float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
-#ifdef ECU_TSC1_CONTROL
 static unsigned StopCount = 0;
-#endif
 
 
 void signals_start_cfg (void) {
@@ -290,9 +290,9 @@ void control_init(void) {
 #ifdef TORQ_DRIVER
 	t46_init(CH2, ADR_T46);
 #endif
-#if ECU_TSC1_CONTROL
-#elif ECU_CONTROL
+#if ECU_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
+	EcuPedControl (0.0f, false);
 #elif SPSH_CONTROL
 	spsh20_init(SPSH20_ADR);
 #elif SERVO_CONTROL
@@ -435,26 +435,52 @@ void read_devices (void) {
 	}
 #endif
 //----данные сервопривода
-#if ECU_TSC1_CONTROL
-	if (EcuCruiseError() == false) {
-		//sg_st.ta.i.a[0] = EcuPedalPos();
-	} else {
-		sg_st.ta.i.a[0] = 0;
-		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
-		error.bit.err_cruise = 1;
-		state.step = ST_STOP_ERR;
-		cmd.opr = OPR_STOP_TEST;
-		EcuCruiseReset();
-	}
-#elif ECU_CONTROL
-	if (EcuPedError() == 0) {
-		sg_st.ta.i.a[0] = EcuPedalPos();
-	} else {
-		sg_st.ta.i.a[0] = 0;
-		sg_st.ta.i.a[2] = SERVO_LINK_ERR;
-		error.bit.no_ta = 1;
-		state.step = ST_STOP_ERR;
-		cmd.opr = OPR_STOP_TEST;
+#if ECU_CONTROL
+	if (SpeedCntrl == TSC1Control) {
+		if (!CntrlDevSel) { // not selected
+			if (EcuCruiseActive()) {
+				CntrlDevSel = true;
+				goto select_1;
+			} else if (EcuCruiseError()) {
+				SpeedCntrl = EaccControl;
+				goto error_1;
+			}
+		} else {
+			if (EcuCruiseError() == false) {
+				select_1:
+				sg_st.ta.i.a[0] = EcuPedalPos();
+			} else {
+				sg_st.ta.i.a[0] = 0;
+				sg_st.ta.i.a[2] = SERVO_LINK_ERR;
+				state.step = ST_STOP_ERR;
+				cmd.opr = OPR_STOP_TEST;
+				error_1:
+				error.bit.no_cruise = 1;
+				EcuCruiseReset();
+			}
+		}
+	} else { // EaccControl:
+		if (!CntrlDevSel) { // not selected
+			if (EcuPedError() == 0) {
+				CntrlDevSel = true;
+				goto select_2;
+			} else {
+				SpeedCntrl = TSC1Control;
+				goto error_2;
+			}
+		} else {
+			if (EcuPedError() == 0) {
+				select_2:
+				sg_st.ta.i.a[0] = EcuPedalPos();
+			} else {
+				error_2:
+				sg_st.ta.i.a[0] = 0;
+				sg_st.ta.i.a[2] = SERVO_LINK_ERR;
+				state.step = ST_STOP_ERR;
+				cmd.opr = OPR_STOP_TEST;
+				error.bit.no_ta = 1;
+			}
+		}
 	}
 #elif SPSH_CONTROL
 	if (spsh20_err_link() == 0) {
@@ -562,9 +588,7 @@ void read_keys (void) {
 	}
 	if (st(DI_PC_TEST_STOP)) {
 		cmd.opr = OPR_STOP_TEST;
-#if ECU_TSC1_CONTROL
-		/*if (error.bit.err_cruise) EcuCruiseReset();*/
-#elif LA10P_CONTROL
+#if LA10P_CONTROL
 		if (error.bit.servo_error) la10p_init();
 #endif
 		error.dword = 0;
@@ -627,7 +651,7 @@ void work_step (void) {
 			state.step = ST_STOP_TIME;
 //------------------√ќ–я„јя ќЅ ј“ ј----------------------
 #if ECU_CONTROL
-		if (1) {
+		if (st(DI_PC_HOT_TEST)) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
 				state.step = ST_WAIT_ENGINE_START;
@@ -640,14 +664,8 @@ void work_step (void) {
 #else // !ECU_CONTROL
 		if (st(DI_PC_HOT_TEST)) { //гор€ча€ обкатка
 			if (state.step == ST_STOP) {
-				/*SpeedKp = SPEED_KP * (float32_t)st(AI_PC_SPEED_KP) / 100.0;
-				SpeedKi = SPEED_KI * (float32_t)st(AI_PC_SPEED_KI) / 100.0;
-				TorqueKp = TORQUE_KP * (float32_t)st(AI_PC_TORQUE_KP) / 100.0;
-				TorqueKi = TORQUE_KI * (float32_t)st(AI_PC_TORQUE_KI) / 100.0;
-				init_PID(); // –егул€торы контуров управлени€*/
 				set(DO_OIL_PUMP, ON);
 				set(DO_FUEL_PUMP, ON);
-
 				state.step = ST_FUEL_PUMP;
 				time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
 			}
@@ -931,16 +949,10 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	if ((val < -delta) || (val > delta)) return 0;
 	return 1;
 }
-
-#if ECU_TSC1_CONTROL
-	#define ZONE_DEAD_REF		0.0f
-	#define ACCEL_STATE			0.0f
-	#define ACCEL_SET
-	#define SPEED_MUL			1.00f
-#elif ECU_PED_CONTROL
-	#define ACCEL_SET(out)		if (SAFE) EcuPedControl(out, true)
+#if ECU_CONTROL
 	#define ACCEL_STATE			EcuPedalPos()
 	#define ZONE_DEAD_REF		20.0f
+	#define ACCEL_SET(out)		if (SpeedCntrl == EaccControl) EcuPedControl(out, true)
 	#define SPEED_MUL			1.00f
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
@@ -961,11 +973,12 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	#error "Accelerator driver not defined"
 #endif
 
+//----------------------------------------------------------------------------------------------
 void work_stop (void) {
-#if !ECU_CONTROL
-	set(DO_STARTER, OFF);
-#else
+#if ECU_CONTROL
 	set(ENGINE_RELAY, OFF);
+#else
+	set(DO_STARTER, OFF);
 #endif
 	set(AO_FC_FREQ, 0);
 #ifndef FREQ_DRIVER
@@ -991,8 +1004,8 @@ void work_stop (void) {
 	}
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
-#if ECU_TSC1_CONTROL
-	if (!error.bit.err_cruise) {
+#if ECU_CONTROL
+	if (SpeedCntrl == TSC1Control) {
 		if (timers_get_time_left(time.alg) == 0) { // останов
 			time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 			if (EcuCruiseState()) {
@@ -1003,6 +1016,8 @@ void work_stop (void) {
 				EcuCruiseControl(0.0f, 0.0f);
 			} else EcuCruiseReset();
 		}
+	} else if (SpeedCntrl == EaccControl) {
+		EcuPedControl(0.0f, true);
 	}
 #else
 	ACCEL_SET(0);
@@ -1080,8 +1095,9 @@ void Speed_loop (void) {
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		torq_corr = (Torque_Out / TORQUE_MAX);
-#ifdef ECU_TSC1_CONTROL
-		EcuCruiseControl(task, torq_corr);
+#if ECU_CONTROL
+		if (SpeedCntrl == TSC1Control)
+			EcuCruiseControl(task, torq_corr);
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);

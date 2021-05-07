@@ -1,7 +1,4 @@
-#include <string.h>
 #include <stdbool.h>
-#include "timers.h"
-#include "types.h"
 #include "mu110_6U.h"
 #include "t46.h"
 #include "ecu.h"
@@ -10,7 +7,7 @@ static int32_t PedalPos = 0;
 static int32_t Data[ECU_CH];
 static bool CruiseState = false;
 static float32_t EcuSpeed = 0;
-static int8_t CurrSA = /*0*/ADDR_VOLVO_M; // ToDo: set to NULL
+static int8_t CurrSA = 0; // ToDo: set to NULL
 
 /*
 spn1483 - Source Address of Controlling Device for Engine Control - The source address of the SAE J1939

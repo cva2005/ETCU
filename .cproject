@@ -72,10 +72,8 @@
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
 									<listOptionValue builtIn="false" value="LA10P_CONTROL=0"/>
-									<listOptionValue builtIn="false" value="SERVO_CONTROL=0"/>
-									<listOptionValue builtIn="false" value="MODEL_NO_SERVO=0"/>
 									<listOptionValue builtIn="false" value="ECU_TSC1_CONTROL=1"/>
-									<listOptionValue builtIn="false" value="ECU_CONTROL=0"/>
+									<listOptionValue builtIn="false" value="ECU_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
