@@ -67,23 +67,13 @@ enum {
 	CFG_TIMOUT_SET_TORQUE,	//Время установки заданного крутящего моента
 #endif
 //сигналы ETCU
-#if ECU_CONTROL
-	DO_STARTER,				//Сигнал: Включено зажигание
-	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
-	DO_COOLANT_PUMP,		//Сигнал:
-	DO_OIL_PUMP,			//Сигнал:
-	DO_COOLANT_HEATER,		//Сигнал: Запуск Двигателя
-	DO_OIL_HEATER,			//Сигнал:
-	DO_FUEL_PUMP,			//Сигнал: Возбуждение Генератора
-#else
-	DO_STARTER,				//Сигнал: Стратер
+	DO_STARTER,				//Сигнал: Стартер/Включено зажигание
 	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
 	DO_COOLANT_PUMP,		//Сигнал: Насос ОЖ
 	DO_OIL_PUMP,			//Сигнал: Насос масла
-	DO_COOLANT_HEATER,		//Сигнал: Нагреватель ОЖ
+	DO_COOLANT_HEATER,		//Сигнал: Нагреватель ОЖ / Запуск Двигателя
 	DO_OIL_HEATER,			//Сигнал: Нагреватель масла
-	DO_FUEL_PUMP,			//Сигнал: Включить ТНВД
-#endif
+	DO_FUEL_PUMP,			//Сигнал: Включить ТНВД / Возбуждение Генератора
 	AI_T_EXHAUST,			//Аналоговый: Температура выхлопных газов
 	AI_T_COOLANT_IN,		//Аналоговый: Температура ОЖ на входе
 	AI_T_COOLANT_OUT,		//Аналоговый: Температура ОЖ на выходе

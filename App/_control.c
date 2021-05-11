@@ -58,14 +58,14 @@ bool CntrlDevSel = false;
 #ifdef MODEL_OBJ
 	#define SPEED_KP			2.20f
 	#define SPEED_KI			0.005f
-	#define SPEED_KD			0.0002f
+	#define SPEED_KD			0.0f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.001f
 #else
 	#define SPEED_KP			0.12f
 	#define SPEED_KI			0.0012f
-	#define SPEED_KD			0.0002f
+	#define SPEED_KD			0.0f
 	#define TORQUE_KP			0.10f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
@@ -953,7 +953,7 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	#define ACCEL_STATE			EcuPedalPos()
 	#define ZONE_DEAD_REF		20.0f
 	#define ACCEL_SET(out)		if (SpeedCntrl == EaccControl) EcuPedControl(out, true)
-	#define SPEED_MUL			1.00f
+	#define SPEED_MUL			2.00f
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
 	#define ACCEL_STATE			servo_get_pos()
@@ -1085,7 +1085,11 @@ void init_PID (void) {
 #define TORQUE_MAX			400.0f // Ќм
 #define TORQUE_FACTOR		0.2f
 #define SPEED_MAX			2000.0f
+#if ECU_CONTROL
+#define SPEED_FACT			0.04f
+#else
 #define SPEED_FACT			45.0f
+#endif
 /*
  * ”правление контуром оборотов
  */
@@ -1113,12 +1117,17 @@ void Speed_loop (void) {
 		ACCEL_SET(pi_out * SPEED_MUL);
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
-	#if SERVO_CONTROL
+#if ECU_CONTROL
+		if (SpeedCntrl == TSC1Control) {
+			pi_out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+		} else {
+			pi_out = ACCEL_STATE * SPEED_FACT;
+			pi_out *= (1 - torq_corr);
+		}
+#else
 		pi_out = ACCEL_STATE * SPEED_FACT;
-	#elif LA10P_CONTROL
-		pi_out = ACCEL_STATE * SPEED_FACT;
-	#endif
 		pi_out *= (1 - torq_corr);
+#endif
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
