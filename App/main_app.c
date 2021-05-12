@@ -1,6 +1,4 @@
 #include "main_app.h"
-//#include "fatfs.h"
-//#include "mxconstants.h"
 #include "timers.h"
 #include "rng.h"
 #include "rtc.h"
@@ -15,7 +13,6 @@
 #include "can_2.h"
 #include "canopen.h"
 #include "modbus.h"
-#include "J1939.h"
 #include "servotech_link.h"
 #include "pc_link.h"
 #include "bcu.h"
@@ -27,11 +24,9 @@
 #include "t46.h"
 #include "_control.h"
 #include "timers.h"
-#include "mu110_6U.h"
 #include "servo.h"
-#include "la10p.h"
 
-stime_t led_blink_time;
+static stime_t led_blink_time;
 
 void main_app (void) {
 #ifdef HAL_IWDG_MODULE_ENABLED
@@ -50,7 +45,7 @@ void main_app (void) {
 	wifi_hf_init(115200);//wifi_hf_init(460800);
 #if SPSH_20_CONTROL
 	can_1_init(CAN_1_SPEED_500K);
-#elif ECU_CONTROL
+#elif UNI_CONTROL
 	can_1_init(CAN_1_SPEED_250K);
 #endif
 	can_2_init(CAN_2_SPEED_250K);
@@ -74,17 +69,6 @@ void main_app (void) {
 		servotech_link_step();
 #endif
 		CanOpen_step();
-#if ECU_CONTROL
-		J1939_step();
-		mu6u_step();
-#elif SPSH_CONTROL
-		pc_link_step();
-		spsh20_step();
-#elif SERVO_CONTROL
-		servo_step();
-#elif LA10P_CONTROL
-		la10p_step();
-#endif
 		bcu_step();
 #ifdef FREQ_DRIVER
 		atv61_step();

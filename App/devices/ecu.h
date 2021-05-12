@@ -49,6 +49,7 @@ void SaveAirFlow (int16_t flow);
 void SaveEngineHours (PGN_65253_t* data);
 int32_t EcuPedalPos (void);
 uint8_t EcuPedError (void);
+bool EcuPedActive (void);
 int32_t ecu_get_data (uint8_t ch);
 void SaveEngineSpeed (int16_t pos);
 float32_t GetEcuSpeed (void);

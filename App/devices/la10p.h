@@ -5,7 +5,8 @@
 #include "_signals.h"
 
 typedef enum {
-	LA10P_READY = 0,
+	LA10P_POWERED = 0,
+	LA10P_READY,
 	LA10P_NOT_INIT,
 	LA10P_INIT_RUN,
 	LA10P_STOP_ERR
@@ -37,6 +38,7 @@ typedef enum {
 #define LA10P_MIN_TIME		(LA10P_FULL_TIME - LA10P_FULL_TIME / 4)
 #define LA10P_MUL			5.00f
 #define STEP_TIME			100 // время шага опроса привода, мс
+#define DEAD_TIME			50 // время мертвого хода, мс
 #define RELE_TIME			200 // время шага управления реле, мс
 #define SENS_MAX_VAL		3000.0f // максимальное выходное значение, мВ
 #define SENS_ERR_VAL		3300.0f // максимальное выходное значение, мВ
@@ -49,37 +51,12 @@ typedef enum {
 #define SENS_I_MAX			4.2f
 #define SENS_I_OFF			0.2f
 
-#if 1
 #define FORW_RUN()			set(FORWARD_MOV, ON)
 #define FORW_STOP()			set(FORWARD_MOV, OFF)
 #define REVR_RUN()			set(REVERS_MOV, ON)
 #define REVR_STOP()			set(REVERS_MOV, OFF)
 #define FORW_MOV			st(FORWARD_MOV)
 #define REVR_MOV			st(REVERS_MOV)
-#else
-#define RUN					GPIO_NOPULL
-#define STOP				GPIO_PULLUP
-#define FORW_PIN			14
-#define REVR_PIN			13
-#define MOV_CONTRL			GPIOE->PUPDR
-
-#define FORW_RUN()			temp = MOV_CONTRL;\
-		temp &= ~(GPIO_PUPDR_PUPDR0 << (FORW_PIN * 2));\
-		MOV_CONTRL = temp;
-#define FORW_STOP()			temp = MOV_CONTRL;\
-		temp &= ~(GPIO_PUPDR_PUPDR0 << (FORW_PIN * 2));\
-		temp |= (1 << (FORW_PIN * 2));\
-		MOV_CONTRL = temp;
-#define	REVR_RUN()			temp = MOV_CONTRL;\
-		temp &= ~(GPIO_PUPDR_PUPDR0 << (REVR_PIN * 2));\
-		MOV_CONTRL = temp;
-#define REVR_STOP()			temp = MOV_CONTRL;\
-		temp &= ~(GPIO_PUPDR_PUPDR0 << (REVR_PIN * 2));\
-		temp |= (1 << (REVR_PIN * 2));\
-		MOV_CONTRL = temp;
-#define FORW_MOV			!(MOV_CONTRL & (1 << (FORW_PIN * 2)))
-#define REVR_MOV			!(MOV_CONTRL & (1 << (REVR_PIN * 2)))
-#endif
 
 void la10p_init(void);
 void la10p_step(void);

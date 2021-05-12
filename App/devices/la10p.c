@@ -6,7 +6,7 @@
 
 static stime_t step_time;
 static stime_t err_time;
-static la10p_st state;
+static la10p_st state = LA10P_POWERED;
 static float32_t SensMax, SensMin;
 static float32_t TaskVal = 0;
 static float32_t CurrNull;
@@ -16,43 +16,24 @@ static float32_t StateVal = 0;
 #endif
 int32_t curr;
 
-/*
- * Инициализация проводится при подаче питания
- * Калибровочные значения минимального и максимального
- * положения сервопривода определяются по отсутсвию приращения
- * в конечной и начальной точке рабочего диапазона.
- * Остановка происходит при увеличении момента за счет
- * падения напряжения на ограничительном резисторе в цепи
- * питания привода.
- */
 void la10p_init(void) {
-#if MODEL_NO_SERVO
-	SensMax = SENS_MAX_VAL;
-	SensMin = SENS_MIN_VAL;
-	FullTime = LA10P_FULL_TIME;
-#else
 	SensMin = SENS_MAX_VAL;
 	SensMax = SENS_MIN_VAL;
 	err_time = timers_get_finish_time(LA10P_ERR_TIME);
-#endif
 	step_time = timers_get_finish_time(STEP_TIME);
 	state = LA10P_NOT_INIT;
 }
 
 void la10p_step(void) {
-	int32_t temp;
+	int32_t temp; // ToDo: учесть время мертвого хода!
 	if (timers_get_time_left(step_time) == 0) {
 		step_time = timers_get_finish_time(STEP_TIME);
 		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
 			return;
 		} else if (state == LA10P_NOT_INIT) {
 			CurrNull = CURR_SENS_VAL;
-#if MODEL_NO_SERVO
-			state = LA10P_READY;
-#else
 			state = LA10P_INIT_RUN;
 			FORW_RUN();
-#endif
 		} else if (state == LA10P_INIT_RUN) {
 			if (timers_get_time_left(err_time) == 0) {
 				la10p_error:
@@ -61,6 +42,17 @@ void la10p_step(void) {
 				state = LA10P_STOP_ERR;
 				return;
 			}
+#if MODEL_NO_SERVO
+			float32_t diff = STEP_TIME / LA10P_FULL_TIME;
+			diff *= SENS_MAX_VAL - SENS_MIN_VAL;
+			if (FORW_MOV) { // движение вперед
+				StateVal += diff;
+				if (StateVal > SENS_MAX_VAL) StateVal = SENS_MAX_VAL;
+			} else if (REVR_MOV) { // движение назад
+				StateVal -= diff;
+				if (StateVal < SENS_MIN_VAL) StateVal = SENS_MIN_VAL;
+			}
+#endif
 			float32_t st_sens = STATE_SENS();
 			float32_t curr_sens = CURR_SENS_A;
 			if (FORW_MOV) { // движение вперед
@@ -112,10 +104,10 @@ void la10p_step(void) {
 #if MODEL_NO_SERVO
 			diff = STEP_TIME / FullTime;
 			diff *= SensMax - SensMin;
-			if (st(FORWARD_MOV)) { // движение вперед
+			if (FORW_MOV) { // движение вперед
 				StateVal += diff;
 				if (StateVal > SensMax) StateVal = SensMax;
-			} else if (st(REVERS_MOV)) { // движение назад
+			} else if (REVR_MOV) { // движение назад
 				StateVal -= diff;
 				if (StateVal < SensMin) StateVal = SensMin;
 			}

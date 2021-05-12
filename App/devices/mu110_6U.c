@@ -73,3 +73,8 @@ uint8_t mu6u_err_link (void) {
 	if (mu6u_err_send >= MU6U_MAX_ERR_SEND) return 1;
 	return 0;
 }
+
+bool mu6u_active (void) {
+	return init;
+}
+

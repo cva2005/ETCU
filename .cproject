@@ -3,7 +3,9 @@
 	<storageModule moduleId="org.eclipse.cdt.core.settings">
 		<cconfiguration id="ilg.gnuarmeclipse.managedbuild.cross.config.elf.debug.1496654514">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="ilg.gnuarmeclipse.managedbuild.cross.config.elf.debug.1496654514" moduleId="org.eclipse.cdt.core.settings" name="Debug">
-				<externalSettings/>
+				<externalSettings>
+					<externalSetting/>
+				</externalSettings>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
 					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -71,9 +73,8 @@
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
 									<listOptionValue builtIn="false" value="MODEL_OBJ"/>
-									<listOptionValue builtIn="false" value="LA10P_CONTROL=0"/>
-									<listOptionValue builtIn="false" value="ECU_TSC1_CONTROL=1"/>
-									<listOptionValue builtIn="false" value="ECU_CONTROL=1"/>
+									<listOptionValue builtIn="false" value="UNI_CONTROL=1"/>
+									<listOptionValue builtIn="false" value="MODEL_NO_SERVO=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -191,7 +192,7 @@
 									<listOptionValue builtIn="false" value="ARM_MATH_CM4"/>
 									<listOptionValue builtIn="false" value="ATV61_MB"/>
 									<listOptionValue builtIn="false" value="HAL_IWDG_MODULE_ENABLED"/>
-									<listOptionValue builtIn="false" value="SERVO_DRIVER=1"/>
+									<listOptionValue builtIn="false" value="UNI_CONTROL=1"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.225212887" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>

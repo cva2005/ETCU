@@ -52,8 +52,8 @@ void init_obj (void);
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
 #define PID_NO_RESET			0
-SpeedCntrl_t SpeedCntrl = TSC1Control;
 bool CntrlDevSel = false;
+static SpeedCntrl_t SpeedCntrl = TSC1Control;
 
 #ifdef MODEL_OBJ
 	#define SPEED_KP			2.20f
@@ -290,15 +290,13 @@ void control_init(void) {
 #ifdef TORQ_DRIVER
 	t46_init(CH2, ADR_T46);
 #endif
-#if ECU_CONTROL
+#if UNI_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
 	EcuPedControl (0.0f, false);
 #elif SPSH_CONTROL
 	spsh20_init(SPSH20_ADR);
 #elif SERVO_CONTROL
 	servo_init();
-#elif LA10P_CONTROL
-	la10p_init();
 #else
 	#error "Accelerator driver not defined"
 #endif
@@ -312,6 +310,16 @@ void control_init(void) {
 //----------------------------------------------------------------------------------------------
 void control_step (void) {
 	read_devices(); //прочитать сосотяние датчиков
+#if UNI_CONTROL
+	if (SpeedCntrl == TSC1Control)  J1939_step();
+	else if (SpeedCntrl == EaccControl) mu6u_step();
+	else la10p_step(); // ServoControl
+#elif SPSH_CONTROL
+	pc_link_step();
+	spsh20_step();
+#elif SERVO_CONTROL
+	servo_step();
+#endif
 	if (state.mode != PC_DEBUG) {
 		read_keys();		//проанализировать команды пользователя
 		work_step();		//выполнить шаг управления
@@ -435,7 +443,7 @@ void read_devices (void) {
 	}
 #endif
 //----данные сервопривода
-#if ECU_CONTROL
+#if UNI_CONTROL
 	if (SpeedCntrl == TSC1Control) {
 		if (!CntrlDevSel) { // not selected
 			if (EcuCruiseActive()) {
@@ -459,13 +467,13 @@ void read_devices (void) {
 				EcuCruiseReset();
 			}
 		}
-	} else { // EaccControl:
+	} else if (SpeedCntrl == EaccControl) {
 		if (!CntrlDevSel) { // not selected
-			if (EcuPedError() == 0) {
+			if (EcuPedActive()) {
 				CntrlDevSel = true;
 				goto select_2;
-			} else {
-				SpeedCntrl = TSC1Control;
+			} else if (EcuPedError()) {
+				SpeedCntrl = ServoControl;
 				goto error_2;
 			}
 		} else {
@@ -479,6 +487,20 @@ void read_devices (void) {
 				state.step = ST_STOP_ERR;
 				cmd.opr = OPR_STOP_TEST;
 				error.bit.no_ta = 1;
+			}
+		}
+	} else { // ServoControl
+		la10p_st srv_st = la10p_state();
+		sg_st.ta.i.a[1] = (int32_t)srv_st;
+		sg_st.ta.i.a[0] = la10p_get_pos() * 1000;
+		if (srv_st != LA10P_READY) {
+			if (srv_st == LA10P_STOP_ERR) {
+				error.bit.servo_error = 1;
+				state.step = ST_STOP_ERR;
+				cmd.opr = ST_STOP_ERR;
+				sg_st.ta.i.a[0] = ERROR_CODE;
+			} else { // LA10P_NOT_INIT
+				error.bit.servo_not_init = 1;
 			}
 		}
 	}
@@ -516,20 +538,6 @@ servo_stop_error:
 	} else { //extern uint32_t CurrTime;
 		//sg_st.ta.i.a[0] = CurrTime * 1000;
 		sg_st.ta.i.a[0] = servo_get_pos() * 1000;
-	}
-#elif LA10P_CONTROL
-	la10p_st srv_st = la10p_state();
-	sg_st.ta.i.a[1] = (int32_t)srv_st;
-	sg_st.ta.i.a[0] = la10p_get_pos() * 1000;
-	if (srv_st != LA10P_READY) {
-		if (srv_st == LA10P_STOP_ERR) {
-			error.bit.servo_error = 1;
-			state.step = ST_STOP_ERR;
-			cmd.opr = ST_STOP_ERR;
-			sg_st.ta.i.a[0] = ERROR_CODE;
-		} else { // LA10P_NOT_INIT
-			error.bit.servo_not_init = 1;
-		}
 	}
 #else
 	#error "Accelerator driver not defined"
@@ -588,8 +596,9 @@ void read_keys (void) {
 	}
 	if (st(DI_PC_TEST_STOP)) {
 		cmd.opr = OPR_STOP_TEST;
-#if LA10P_CONTROL
-		if (error.bit.servo_error) la10p_init();
+#if UNI_CONTROL
+		if ((SpeedCntrl == ServoControl) &&
+				(la10p_state() == LA10P_POWERED)) la10p_init();
 #endif
 		error.dword = 0;
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
@@ -603,7 +612,7 @@ void read_keys (void) {
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
 #endif
-#if ECU_CONTROL
+#if UNI_CONTROL
 	if (st(ENGINE_KEY_TASK)) { // Вкл. зажигания
 		if (!st(ENGINE_RELAY)) {
 			cmd.opr = OPR_KEY_ON;
@@ -650,7 +659,7 @@ void work_step (void) {
 		if (timers_get_time_left(time.all) == 0)
 			state.step = ST_STOP_TIME;
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
-#if ECU_CONTROL
+#if UNI_CONTROL
 		if (st(DI_PC_HOT_TEST)) {
 			if (state.step == ST_STOP) {
 				set(START_RELAY, ON);
@@ -661,7 +670,7 @@ void work_step (void) {
 				Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
 #endif
 			}
-#else // !ECU_CONTROL
+#else // !UNI_CONTROL
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
 			if (state.step == ST_STOP) {
 				set(DO_OIL_PUMP, ON);
@@ -705,11 +714,11 @@ void work_step (void) {
 					}
 				}
 			}
-#endif // #if ECU_CONTROL
+#endif // #if UNI_CONTROL
 			if (state.step == ST_WAIT_ENGINE_START) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
 					engine_start:
-#if ECU_CONTROL
+#if UNI_CONTROL
 					set(START_RELAY, OFF);
 					set(GEN_EXC_RELAY, ON); // включить Возбуждение Генератора
 					time.alg = timers_get_finish_time(2000); // на 2 сек.
@@ -732,7 +741,7 @@ void work_step (void) {
 				}
 			}
 			if (state.step == ST_SET_ROTATION) { // Двухконтурная регулировка оборотов и момента
-#if ECU_CONTROL
+#if UNI_CONTROL
 				if (timers_get_time_left(time.alg) == 0) {
 					set(GEN_EXC_RELAY, OFF); // выключить Возбуждение Генератора
 				}
@@ -744,7 +753,7 @@ void work_step (void) {
 					}
 				}
 #endif // MODEL_OBJ
-#endif // ECU_CONTROL
+#endif // UNI_CONTROL
 #ifdef SPSH_CONTROL
 				int32_t pos = st(AI_SERVO_POSITION);
 				if (pos > MAX_SERVO_POSITION || pos < MIN_SERVO_POSITION) {
@@ -917,7 +926,7 @@ void set_indication (void) {
 	//set(AO_PC_TIME, rtc_sens_get_time());
 	//set(AO_PC_DATE, rtc_sens_get_date());
 //---------------ламочки
-#if ECU_CONTROL
+#if UNI_CONTROL
 	set(ENGINE_ON_LED, st(ENGINE_RELAY));				//Сигнал: Зажигание Включено
 	set(DO_PC_COOLANT_FAN, st(DO_COOLANT_FAN));			//Сигнал:
 	set(DO_PC_COOLANT_PUMP, st(DO_COOLANT_PUMP));		//Сигнал:
@@ -949,7 +958,7 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	if ((val < -delta) || (val > delta)) return 0;
 	return 1;
 }
-#if ECU_CONTROL
+#if UNI_CONTROL
 	#define ACCEL_STATE			EcuPedalPos()
 	#define ZONE_DEAD_REF		20.0f
 	#define ACCEL_SET(out)		if (SpeedCntrl == EaccControl) EcuPedControl(out, true)
@@ -975,7 +984,7 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 
 //----------------------------------------------------------------------------------------------
 void work_stop (void) {
-#if ECU_CONTROL
+#if UNI_CONTROL
 	set(ENGINE_RELAY, OFF);
 #else
 	set(DO_STARTER, OFF);
@@ -1004,7 +1013,7 @@ void work_stop (void) {
 	}
 	set(AO_SERVO_POSITION, 0);
 	init_PID();
-#if ECU_CONTROL
+#if UNI_CONTROL
 	if (SpeedCntrl == TSC1Control) {
 		if (timers_get_time_left(time.alg) == 0) { // останов
 			time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
@@ -1085,7 +1094,7 @@ void init_PID (void) {
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.2f
 #define SPEED_MAX			2000.0f
-#if ECU_CONTROL
+#if UNI_CONTROL
 #define SPEED_FACT			0.04f
 #else
 #define SPEED_FACT			45.0f
@@ -1099,7 +1108,7 @@ void Speed_loop (void) {
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		torq_corr = (Torque_Out / TORQUE_MAX);
-#if ECU_CONTROL
+#if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control)
 			EcuCruiseControl(task, torq_corr);
 #endif
@@ -1117,7 +1126,7 @@ void Speed_loop (void) {
 		ACCEL_SET(pi_out * SPEED_MUL);
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
-#if ECU_CONTROL
+#if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control) {
 			pi_out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		} else {

@@ -106,6 +106,10 @@ uint8_t EcuPedError (void) {
 	return mu6u_err_link();
 }
 
+bool EcuPedActive (void) {
+	return mu6u_active();
+}
+
 int32_t EcuPedalPos (void) {
 	return PedalPos;
 }

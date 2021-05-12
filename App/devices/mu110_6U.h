@@ -19,6 +19,7 @@ void mu6u_init (uint8_t ch, uint8_t addr); //Инициализация устйроства
 void mu6u_set_out (uint16_t data);//Устанавливает выходы DAC0, DAC1
 uint8_t mu6u_err_link (void);	//Возвращает состояние связи с MU6U
 void mu6u_step (void);
+bool mu6u_active (void);
 extern uint16_t safe;
 
 /*
