@@ -96,10 +96,11 @@ void EcuPedControl (float32_t out, bool start) {
 	uint16_t data = out_min + (uint16_t)(out * DAC_FACT);
 	if (data > DAC_OUT_MAX) data = DAC_OUT_MAX;
 	mu6u_set_out(data); // уст. выходы DAC0, DAC1
-	int32_t diff, old_pos = PedalPos;
-	PedalPos = (data - DAC_OUT_NULL) * (100000 / DAC_OUT_DIFF); // положение сервопривода %
-	diff = PedalPos - old_pos;
-	if (abs(diff) > PERC_10) PedalPos = old_pos + (diff / DEMPH_VAL);
+	//int32_t diff, old_pos = PedalPos;
+	//PedalPos = (data -  DAC_OUT_MIN) * (100000 / DAC_OUT_DIFF); // положение сервопривода %
+	PedalPos = data * (100000 / DAC_OUT_FULL); // положение сервопривода %
+	//diff = PedalPos - old_pos;
+	//if (abs(diff) > PERC_10) PedalPos = old_pos + (diff / DEMPH_VAL);
 }
 
 uint8_t EcuPedError (void) {

@@ -6,9 +6,10 @@
 #define SPEED_LOOP_TIME		TSC1_TX_RATE
 #define ECU_CH				10
 #define DAC_OUT_NULL		65  // минимальное значение выхода: 5В * 13%
-#define DAC_OUT_MIN			120  // значение выхода в режиме ХХ: 5В * 25%
+#define DAC_OUT_MIN			120  // значение выхода в режиме ХХ: 5В * 24%
 #define DAC_OUT_MAX			445 // максимальное значение выхода: 5В * 89%
-#define DAC_OUT_DIFF		(DAC_OUT_MAX - DAC_OUT_NULL)
+#define DAC_OUT_FULL		500 // максимальное значение выхода: 5В * 100%
+#define DAC_OUT_DIFF		(DAC_OUT_MAX -  DAC_OUT_MIN)
 #define DAC_FACT			0.0456f
 #define SPEED_RESOL			0.125f // rpm
 #define TORQUE_LIM			125.0f // %
@@ -26,7 +27,8 @@
 #define ENGINE_H_WEIGHT		0.05f // 0.05 hr/bit
 #define OIL_C_OFFSET		40
 #define TORQUE_OFFSET		125
-#define SPD_MAX				2850.0f
+//#define SPD_MAX				2850.0f
+#define SPD_MAX				4000.0f
 #define SPD_MIN				700.0f
 #define SPD_DIFF			(SPD_MAX - SPD_MIN)
 #define	PERC_10				10000

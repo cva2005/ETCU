@@ -1032,7 +1032,6 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	return 1;
 }
 #if UNI_CONTROL
-	#define ACCEL_STATE			EcuPedalPos()
 	#define ZONE_DEAD_EACC		20.0f
 	#define ZONE_DEAD_LA10P		80.0f
 	#define SPEED_MUL_EACC		2.00f
@@ -1177,14 +1176,22 @@ void Speed_loop (void) {
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+		if (task < SPD_MIN) task = SPD_MIN;
 		torq_corr = (Torque_Out / TORQUE_MAX);
+		float32_t acc_state;
 #if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control)
 			EcuCruiseControl(task, torq_corr);
+		else if (SpeedCntrl == EaccControl)
+			acc_state = EcuPedalPos();
+		else if (SpeedCntrl == ServoControl)
+			acc_state = la10p_get_pos();
+#else
+		acc_state = ACCEL_STATE;
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
-		if ((ACCEL_STATE >= 95.0) && (task > 0)) {
+		if ((acc_state >= 95.0) && (task > 0)) {
 			Speed_PID.Ki = 0;
 		} else {
 			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
@@ -1204,7 +1211,7 @@ void Speed_loop (void) {
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #if UNI_CONTROL
 		if (SpeedCntrl == EaccControl)
-			EcuPedControl(SPEED_MUL_EACC, true);
+			EcuPedControl(pi_out * SPEED_MUL_EACC, true);
 		else if (SpeedCntrl == ServoControl)
 			la10p_set_out(pi_out * SPEED_MUL_LA10P);
 #else
@@ -1227,7 +1234,7 @@ void Speed_loop (void) {
 		pi_out = ACCEL_STATE * SPEED_FACT;
 		pi_out *= (1 - torq_corr);
 #endif
-		Speed_Out = get_obj(&FrequeObj, pi_out);
+		Speed_Out = SPD_MIN + get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
 }
