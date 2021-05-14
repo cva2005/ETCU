@@ -25,9 +25,8 @@ typedef enum {
 #define DEF_TIMOUT_ENGINE_ROTATE	20000 	//Времяза которое должен выйти на заданные обороты двигатель
 #define DEF_TIMOUT_SET_TORQUE		20000 	//Время установки заданного крутящего моента
 
-#define OPR_STOP_TEST		0
 #define OPR_START_TEST		1
-#define OPR_KEY_ON			2
+#define OPR_KEY_ON			11
 
 typedef struct {
 	uint8_t opr;

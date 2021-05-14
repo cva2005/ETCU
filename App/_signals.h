@@ -222,9 +222,26 @@ enum {
 #define GEN_EXC_LED			DO_PC_FUEL_PUMP // Сигнал: Возбуждение Генератора
 #define ENGINE_RELAY		DO_STARTER // Сигнал: Включено зажигание
 #define GEN_EXC_RELAY		DO_FUEL_PUMP // Сигнал: Возбуждение Генератора
-#define START_RELAY			DO_COOLANT_HEATER // Сигнал: Запустить Двигатель
+#define START_RELAY			DO_STARTER/*DO_COOLANT_HEATER*/ // Сигнал: Запустить Двигатель
 #define SAFE_MAX			AO_PC_ROTATE
 #define SFREQ_MAX			AI_PC_ROTATE
+/*сигналы ETCU
+	DO_STARTER,				//Сигнал: Стартер/Включено зажигание
+	DO_COOLANT_FAN,			//Сигнал: Вентилятор ОЖ
+	DO_COOLANT_PUMP,		//Сигнал: Насос ОЖ
+	DO_OIL_PUMP,			//Сигнал: Насос масла
+	DO_COOLANT_HEATER,		//Сигнал: Нагреватель ОЖ / Запуск Двигателя
+	DO_OIL_HEATER,			//Сигнал: Нагреватель масла
+	DO_FUEL_PUMP,			//Сигнал: Включить ТНВД / Возбуждение Генератора
+	sig_cfg[DO_STARTER].fld.number=0;					//Сигнал: Стратер
+	sig_cfg[DO_COOLANT_FAN].fld.number=1;				//Сигнал: Вентилятор ОЖ
+	sig_cfg[DO_COOLANT_PUMP].fld.number=2;				//Сигнал: Насос ОЖ
+	//sig_cfg[DO_OIL_PUMP].fld.number=3;					//Сигнал: Насос масла
+	sig_cfg[DO_OIL_PUMP].fld.number=1;					//Сигнал: Насос масла (перемещено в BCU)
+	sig_cfg[DO_COOLANT_HEATER].fld.number=4;			//Сигнал: Нагреватель ОЖ
+	sig_cfg[DO_OIL_HEATER].fld.number=5;				//Сигнал: Нагреватель масла
+	sig_cfg[DO_FUEL_PUMP].fld.number=6;					//Сигнал: Включить ТНВД
+*/
 //--------------------------состояние сигналов------------------------------------------------------------
 typedef struct
 	{
@@ -461,7 +478,7 @@ typedef struct
 			uint8_t no_bcu :1; //нет связи с модулем управления гидротормозом
 			uint8_t no_fc :1; //нет связи с преобразователем часоты
 			uint8_t no_ta :1; //нет связи с сервоприводом педали газа
-			uint8_t no_eacc :1; //нет связи с эмулятором педали газа (MVU6)
+			uint8_t servo_not_init:1; //калибровка сервопривода
 			uint8_t no_trq :1; //нет связи с датчиком момента
 			uint8_t err_fc :1; //ошибка в работе преобразователя частоты
 			uint8_t err_akb:1; //низкое напряжение АКБ, запуск стартера невозможен
@@ -471,9 +488,10 @@ typedef struct
 			uint8_t engine_start:1; //ошибка запуска двигателя: двигатель не запускается
 			uint8_t engine_rotate:1; //двигатель не выходит на заданные обороты
 			uint8_t emergancy_stop:1; //нажать "Аварийный стоп"
-			uint8_t servo_not_init:1; //калибровка сервопривода
+			uint8_t no_eacc :1; //нет связи с эмулятором педали газа (MVU6)
 			uint8_t servo_error:1; //ошибка сервопривода
 			uint8_t no_cruise:1; //ошибка управления по Круиз-Контроль
+			uint8_t servo_init_ok:1; //калибровка сервопривода завершена
 		} bit;
 		uint32_t dword;
 	} error_t;

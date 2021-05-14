@@ -54,6 +54,7 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_NO_RESET			0
 bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
+static bool Ready;
 
 #ifdef MODEL_OBJ
 	#define SPEED_KP			2.20f
@@ -128,16 +129,13 @@ void signals_start_cfg (void) {
 	sig_cfg[AI_I_AKB_N].fld.number=ETCU_AI_I_N;			//Аналоговый: Ток АКБ вытекающий
 	sig_cfg[AI_U_AKB].fld.number=ETCU_AI_U;				//Аналоговый: Напряжение АКБ
 	sig_cfg[DO_STARTER].fld.number=0;					//Сигнал: Стратер
+	sig_cfg[DO_COOLANT_FAN].fld.number=1;				//Сигнал: Вентилятор ОЖ
+	sig_cfg[DO_COOLANT_PUMP].fld.number=2;				//Сигнал: Насос ОЖ
 	//sig_cfg[DO_OIL_PUMP].fld.number=3;					//Сигнал: Насос масла
 	sig_cfg[DO_OIL_PUMP].fld.number=1;					//Сигнал: Насос масла (перемещено в BCU)
-	//sig_cfg[DO_COOLANT_HEATER].fld.number=4;			//Сигнал: Нагреватель ОЖ
-	sig_cfg[DO_COOLANT_HEATER].fld.number=6;			//Сигнал: Нагреватель ОЖ
-	//sig_cfg[DO_OIL_HEATER].fld.number=5;				//Сигнал: Нагреватель масла
-	sig_cfg[DO_OIL_HEATER].fld.number=7;				//Сигнал: Нагреватель масла
-	//sig_cfg[DO_FUEL_PUMP].fld.number=6;					//Сигнал: Включить ТНВД
-	sig_cfg[DO_FUEL_PUMP].fld.number=4;					//Сигнал: Включить ТНВД
-	sig_cfg[DO_COOLANT_PUMP].fld.number=2;				//Сигнал: Насос ОЖ
-	sig_cfg[DO_COOLANT_FAN].fld.number=1;				//Сигнал: Вентилятор ОЖ
+	sig_cfg[DO_COOLANT_HEATER].fld.number=4;			//Сигнал: Нагреватель ОЖ
+	sig_cfg[DO_OIL_HEATER].fld.number=5;				//Сигнал: Нагреватель масла
+	sig_cfg[DO_FUEL_PUMP].fld.number=6;					//Сигнал: Включить ТНВД
 //настройка сигналов APS---------------------------------
 	for (cnt=AI_T_AIR; cnt<DO_EMERGANCY; cnt++) {
 		sig_cfg[cnt].fld.deivice=APS;
@@ -461,10 +459,10 @@ void read_devices (void) {
 				sg_st.ta.i.a[0] = 0;
 				sg_st.ta.i.a[2] = SERVO_LINK_ERR;
 				state.step = ST_STOP_ERR;
-				cmd.opr = OPR_STOP_TEST;
+				cmd.opr = ST_STOP;
 				error_1:
 				error.bit.no_cruise = 1;
-				EcuCruiseReset();
+				//EcuCruiseReset();
 			}
 		}
 	} else if (SpeedCntrl == EaccControl) {
@@ -474,6 +472,8 @@ void read_devices (void) {
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
+				state.step = ST_STOP;
+				cmd.opr = ST_STOP;
 				goto error_2;
 			}
 		} else {
@@ -481,26 +481,35 @@ void read_devices (void) {
 				select_2:
 				sg_st.ta.i.a[0] = EcuPedalPos();
 			} else {
-				error_2:
 				sg_st.ta.i.a[0] = 0;
 				sg_st.ta.i.a[2] = SERVO_LINK_ERR;
 				state.step = ST_STOP_ERR;
-				cmd.opr = OPR_STOP_TEST;
-				error.bit.no_ta = 1;
+				cmd.opr = ST_STOP_ERR;
+				error_2:
+				error.bit.no_cruise = 0;
+				error.bit.no_eacc = 1;
 			}
 		}
 	} else { // ServoControl
 		la10p_st srv_st = la10p_state();
 		sg_st.ta.i.a[1] = (int32_t)srv_st;
 		sg_st.ta.i.a[0] = la10p_get_pos() * 1000;
-		if (srv_st != LA10P_READY) {
-			if (srv_st == LA10P_STOP_ERR) {
-				error.bit.servo_error = 1;
-				state.step = ST_STOP_ERR;
-				cmd.opr = ST_STOP_ERR;
-				sg_st.ta.i.a[0] = ERROR_CODE;
-			} else { // LA10P_NOT_INIT
-				error.bit.servo_not_init = 1;
+		if (la10p_state() == LA10P_POWERED) {
+			la10p_init();
+			Ready = false;
+			error.bit.servo_not_init = 1;
+		} else if (srv_st == LA10P_STOP_ERR) {
+			error.bit.servo_error = 1;
+			state.step = ST_STOP_ERR;
+			cmd.opr = ST_STOP_ERR;
+			sg_st.ta.i.a[0] = ERROR_CODE;
+		} else if (srv_st == LA10P_READY) {
+			if (Ready == false) {
+				Ready = false;
+				error.bit.no_eacc = 0;
+				error.bit.servo_not_init = 0;
+				//error.bit.servo_init_ok = 1;
+				//cmd.opr = OPR_START_TEST;
 			}
 		}
 	}
@@ -595,12 +604,15 @@ void read_keys (void) {
 		time.all = timers_get_finish_time(time_all);
 	}
 	if (st(DI_PC_TEST_STOP)) {
-		cmd.opr = OPR_STOP_TEST;
-#if UNI_CONTROL
-		if ((SpeedCntrl == ServoControl) &&
-				(la10p_state() == LA10P_POWERED)) la10p_init();
-#endif
+		cmd.opr = ST_STOP;
 		error.dword = 0;
+#if 0/*UNI_CONTROL*/
+		if ((SpeedCntrl == ServoControl) &&
+				(la10p_state() == LA10P_POWERED)) {
+			la10p_init();
+			error.bit.servo_not_init = 1;
+		}
+#endif
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
 #if 0
@@ -612,14 +624,14 @@ void read_keys (void) {
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
 #endif
-#if UNI_CONTROL
+#if 0/*UNI_CONTROL*/
 	if (st(ENGINE_KEY_TASK)) { // Вкл. зажигания
 		if (!st(ENGINE_RELAY)) {
 			cmd.opr = OPR_KEY_ON;
 			set(ENGINE_RELAY, ON);
 			set(DO_OIL_PUMP, ON);
 		} else {
-			if (cmd.opr != OPR_STOP_TEST) return;
+			if (cmd.opr != ST_STOP) return;
 		}
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
 	}
@@ -661,14 +673,59 @@ void work_step (void) {
 //------------------ГОРЯЧАЯ ОБКАТКА----------------------
 #if UNI_CONTROL
 		if (st(DI_PC_HOT_TEST)) {
-			if (state.step == ST_STOP) {
-				set(START_RELAY, ON);
-				state.step = ST_WAIT_ENGINE_START;
-				time.alg = timers_get_finish_time(15000);
+			if (SpeedCntrl != ServoControl) {
+				if (state.step == ST_STOP) {
+					set(START_RELAY, ON);
+					state.step = ST_WAIT_ENGINE_START;
+					time.alg = timers_get_finish_time(15000);
 #ifdef MODEL_OBJ
-				init_obj(); // нач. установка ОР1, ОР2
-				Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
+					init_obj(); // нач. установка ОР1, ОР2
+					Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
 #endif
+				}
+			} else { // SpeedCntrl == ServoControl
+				if (state.step == ST_STOP) {
+					set(DO_OIL_PUMP, ON);
+					set(DO_FUEL_PUMP, ON);
+					state.step = ST_FUEL_PUMP;
+					time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
+				}
+				if (state.step == ST_FUEL_PUMP) {
+					if (timers_get_time_left(time.alg) == 0) {
+#ifndef NO_BATTERY
+						if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
+#ifndef SERVO_CONTROL
+							Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
+#endif
+#endif
+							set(DO_STARTER, ON);
+#ifdef MODEL_OBJ
+							init_obj(); // нач. установка ОР1, ОР2
+							state.step = ST_SET_ROTATION;
+							time.alg = timers_get_finish_time(4000);
+							cntrl_M_time = timers_get_finish_time(0);
+#else
+							time.alg = timers_get_finish_time(st(CFG_STARTER_ON_TIME));
+							state.step = ST_STARTER_ON;
+#endif
+#ifndef NO_BATTERY
+						} else {
+							error.bit.err_akb = 1;
+							state.step = ST_STOP_ERR;
+						}
+#endif
+					}
+				}
+				if (state.step == ST_STARTER_ON) {
+					if (st(AO_PC_CURRENT) >= st(CFG_MIN_I_STARTER)) {
+						state.step = ST_WAIT_ENGINE_START;
+					} else {
+						if (timers_get_time_left(time.alg) == 0) {
+							error.bit.err_starter = 1;
+							state.step = ST_STOP_ERR;
+						}
+					}
+				}
 			}
 #else // !UNI_CONTROL
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
@@ -719,9 +776,14 @@ void work_step (void) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
 					engine_start:
 #if UNI_CONTROL
-					set(START_RELAY, OFF);
-					set(GEN_EXC_RELAY, ON); // включить Возбуждение Генератора
-					time.alg = timers_get_finish_time(2000); // на 2 сек.
+					if (SpeedCntrl != ServoControl) {
+						set(START_RELAY, OFF);
+						set(GEN_EXC_RELAY, ON); // включить Возбуждение Генератора
+						time.alg = timers_get_finish_time(2000); // на 2 сек.
+					} else { // SpeedCntrl == ServoControl
+						set(DO_STARTER, OFF);
+						time.alg = timers_get_finish_time(0);
+					}
 #else
 					set(DO_STARTER, OFF);
 					time.alg = timers_get_finish_time(0);
@@ -742,8 +804,18 @@ void work_step (void) {
 			}
 			if (state.step == ST_SET_ROTATION) { // Двухконтурная регулировка оборотов и момента
 #if UNI_CONTROL
-				if (timers_get_time_left(time.alg) == 0) {
-					set(GEN_EXC_RELAY, OFF); // выключить Возбуждение Генератора
+				if (SpeedCntrl != ServoControl) {
+					if (timers_get_time_left(time.alg) == 0) {
+						set(GEN_EXC_RELAY, OFF); // выключить Возбуждение Генератора
+					}
+#ifdef MODEL_OBJ
+				} else {
+					if (timers_get_time_left(time.alg) == 0) {
+						if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+							set(DO_STARTER, OFF);
+						}
+					}
+#endif // MODEL_OBJ
 				}
 #else
 #ifdef MODEL_OBJ
@@ -932,6 +1004,7 @@ void set_indication (void) {
 	set(DO_PC_COOLANT_PUMP, st(DO_COOLANT_PUMP));		//Сигнал:
 	set(DO_PC_OIL_PUMP,	st(DO_OIL_PUMP));				//Сигнал:
 	set(DO_PC_COOLANT_HEATER, st(DO_COOLANT_HEATER));	//Сигнал:
+	set(DO_PC_OIL_HEATER, st(DO_OIL_HEATER));			//Сигнал:
 	set(GEN_EXC_LED, st(GEN_EXC_RELAY));				//Сигнал: Возбуждение Генератора
 	set(DO_PC_OIL_FAN, st(DO_OIL_FAN));     			//Сигнал:
 #else
@@ -960,9 +1033,10 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 }
 #if UNI_CONTROL
 	#define ACCEL_STATE			EcuPedalPos()
-	#define ZONE_DEAD_REF		20.0f
-	#define ACCEL_SET(out)		if (SpeedCntrl == EaccControl) EcuPedControl(out, true)
-	#define SPEED_MUL			2.00f
+	#define ZONE_DEAD_EACC		20.0f
+	#define ZONE_DEAD_LA10P		80.0f
+	#define SPEED_MUL_EACC		2.00f
+	#define SPEED_MUL_LA10P		0.50f
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
 	#define ACCEL_STATE			servo_get_pos()
@@ -973,11 +1047,6 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	#define ACCEL_STATE			(float32_t)(spsh20_get_pos() / 1000)
 	#define ZONE_DEAD_REF		20.0f
 	#define SPEED_MUL			-40.00f
-#elif LA10P_CONTROL
-	#define ACCEL_SET			la10p_set_out
-	#define ACCEL_STATE			la10p_get_pos()
-	#define ZONE_DEAD_REF		50.0f
-	#define SPEED_MUL			0.50f
 #else
 	#error "Accelerator driver not defined"
 #endif
@@ -1095,7 +1164,8 @@ void init_PID (void) {
 #define TORQUE_FACTOR		0.2f
 #define SPEED_MAX			2000.0f
 #if UNI_CONTROL
-#define SPEED_FACT			0.04f
+#define SPEED_FACT_EACC		0.04f
+#define SPEED_FACT_LA10P	45.0f
 #else
 #define SPEED_FACT			45.0f
 #endif
@@ -1121,16 +1191,36 @@ void Speed_loop (void) {
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
+#if UNI_CONTROL
+		float32_t zone_dead;
+		if (SpeedCntrl == EaccControl)
+			zone_dead = ZONE_DEAD_EACC;
+		else if (SpeedCntrl == ServoControl)
+			zone_dead = ZONE_DEAD_LA10P;
+		if (tmp < zone_dead) task = 0;
+#else
 		if (tmp < ZONE_DEAD_REF) task = 0;
+#endif
 		pi_out = arm_pid_f32(&Speed_PID, task);
+#if UNI_CONTROL
+		if (SpeedCntrl == EaccControl)
+			EcuPedControl(SPEED_MUL_EACC, true);
+		else if (SpeedCntrl == ServoControl)
+			la10p_set_out(pi_out * SPEED_MUL_LA10P);
+#else
 		ACCEL_SET(pi_out * SPEED_MUL);
+#endif
 #ifdef MODEL_OBJ
 		torq_corr *= TORQUE_FACTOR;
 #if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control) {
 			pi_out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		} else {
-			pi_out = ACCEL_STATE * SPEED_FACT;
+			if (SpeedCntrl == EaccControl) {
+				pi_out = EcuPedalPos() * SPEED_FACT_EACC;
+			} else { // SpeedCntrl == ServoControl
+				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
+			}
 			pi_out *= (1 - torq_corr);
 		}
 #else

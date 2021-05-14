@@ -28,7 +28,7 @@ void la10p_step(void) {
 	int32_t temp; // ToDo: учесть время мертвого хода!
 	if (timers_get_time_left(step_time) == 0) {
 		step_time = timers_get_finish_time(STEP_TIME);
-		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
+		if (state < LA10P_NOT_INIT) { // ошибка сервопривода
 			return;
 		} else if (state == LA10P_NOT_INIT) {
 			CurrNull = CURR_SENS_VAL;
@@ -43,7 +43,7 @@ void la10p_step(void) {
 				return;
 			}
 #if MODEL_NO_SERVO
-			float32_t diff = STEP_TIME / LA10P_FULL_TIME;
+			float32_t diff = (float32_t)STEP_TIME / (float32_t)LA10P_FULL_TIME;
 			diff *= SENS_MAX_VAL - SENS_MIN_VAL;
 			if (FORW_MOV) { // движение вперед
 				StateVal += diff;
@@ -54,12 +54,12 @@ void la10p_step(void) {
 			}
 #endif
 			float32_t st_sens = STATE_SENS();
-			float32_t curr_sens = CURR_SENS_A;
+			float32_t curr_sens = /*CURR_SENS_A*/0;
 			if (FORW_MOV) { // движение вперед
 				if ((curr_sens > SENS_I_MAX) /*|| (curr_sens < SENS_I_OFF)*/) {
 					goto forw_stop;
 				}
-				if (st_sens > SensMax) {
+				if (st_sens > SensMax + FLOAT_MIN) {
 					SensMax = st_sens;
 				} else {
 					forw_stop:
@@ -79,7 +79,7 @@ void la10p_step(void) {
 				/*if ((curr_sens > SENS_I_MAX) || (curr_sens < SENS_I_OFF)) {
 					goto revers_stop;
 				}*/
-				if (st_sens < SensMin) {
+				if (st_sens < SensMin - FLOAT_MIN) {
 					SensMin = st_sens;
 					FullTime += STEP_TIME;
 				} else {
@@ -136,7 +136,11 @@ void la10p_step(void) {
 
 /* servo position in % */
 float32_t la10p_get_pos(void) {
+#if MODEL_NO_SERVO
+	float32_t pos = ((STATE_SENS() - SENS_MIN_VAL) / (SENS_MAX_VAL - SENS_MIN_VAL)) * 100.0;
+#else
 	float32_t pos = ((STATE_SENS() - SensMin) / (SensMax - SensMin)) * 100.0;
+#endif
 	if (pos < 0) pos = 0;
 	if (pos > 100) pos = 100;
 	return pos;

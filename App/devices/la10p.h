@@ -6,10 +6,10 @@
 
 typedef enum {
 	LA10P_POWERED = 0,
-	LA10P_READY,
-	LA10P_NOT_INIT,
+	LA10P_STOP_ERR = 1,
+	LA10P_NOT_INIT = 2,
 	LA10P_INIT_RUN,
-	LA10P_STOP_ERR
+	LA10P_READY
 } la10p_st;
 
 /*
@@ -34,7 +34,7 @@ typedef enum {
 #define FORWARD_MOV			DO_OIL_HEATER
 #define REVERS_MOV			DO_COOLANT_HEATER
 #define LA10P_FULL_TIME		(ST_LENGT * 1000 / ST_MOVE + 2000) // ms
-#define LA10P_ERR_TIME		LA10P_FULL_TIME
+#define LA10P_ERR_TIME		LA10P_FULL_TIME + 1000
 #define LA10P_MIN_TIME		(LA10P_FULL_TIME - LA10P_FULL_TIME / 4)
 #define LA10P_MUL			5.00f
 #define STEP_TIME			100 // время шага опроса привода, мс
@@ -50,6 +50,7 @@ typedef enum {
 #define CURR_SENS_A			fabs(CURR_SENS_mV / SENS_I_mV_A)
 #define SENS_I_MAX			4.2f
 #define SENS_I_OFF			0.2f
+#define FLOAT_MIN			0.0001
 
 #define FORW_RUN()			set(FORWARD_MOV, ON)
 #define FORW_STOP()			set(FORWARD_MOV, OFF)
