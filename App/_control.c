@@ -57,9 +57,12 @@ static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP			2.20f
-	#define SPEED_KI			0.005f
-	#define SPEED_KD			0.0f
+	#define SPEED_KP			3.00f
+	#define SPEED_KI			0.10f
+	#define SPEED_KD			0.05f
+//#define SPEED_KP			2.20f
+//#define SPEED_KI			0.005f
+//#define SPEED_KD			0.0f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.001f
@@ -1032,9 +1035,9 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	return 1;
 }
 #if UNI_CONTROL
-	#define ZONE_DEAD_EACC		20.0f
+	#define ZONE_DEAD_EACC		05.0f
 	#define ZONE_DEAD_LA10P		80.0f
-	#define SPEED_MUL_EACC		2.00f
+	#define SPEED_MUL_EACC		0.08f
 	#define SPEED_MUL_LA10P		0.50f
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
@@ -1182,10 +1185,12 @@ void Speed_loop (void) {
 #if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control)
 			EcuCruiseControl(task, torq_corr);
-		else if (SpeedCntrl == EaccControl)
+		else if (SpeedCntrl == EaccControl) {
 			acc_state = EcuPedalPos();
-		else if (SpeedCntrl == ServoControl)
+			acc_state /= 1000.0;
+		} else if (SpeedCntrl == ServoControl) {
 			acc_state = la10p_get_pos();
+		}
 #else
 		acc_state = ACCEL_STATE;
 #endif
@@ -1200,19 +1205,21 @@ void Speed_loop (void) {
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 #if UNI_CONTROL
 		float32_t zone_dead;
-		if (SpeedCntrl == EaccControl)
+		if (SpeedCntrl == EaccControl) {
 			zone_dead = ZONE_DEAD_EACC;
-		else if (SpeedCntrl == ServoControl)
+		} else if (SpeedCntrl == ServoControl) {
 			zone_dead = ZONE_DEAD_LA10P;
+		}
 		if (tmp < zone_dead) task = 0;
 #else
 		if (tmp < ZONE_DEAD_REF) task = 0;
 #endif
 		pi_out = arm_pid_f32(&Speed_PID, task);
 #if UNI_CONTROL
-		if (SpeedCntrl == EaccControl)
-			EcuPedControl(pi_out * SPEED_MUL_EACC, true);
-		else if (SpeedCntrl == ServoControl)
+		if (SpeedCntrl == EaccControl) {
+			uint16_t acc_out = (uint16_t)(acc_state / 100.0 + (pi_out - SPD_MIN) * SPEED_MUL_EACC);
+			EcuPedControl(acc_out, true);
+		} else if (SpeedCntrl == ServoControl)
 			la10p_set_out(pi_out * SPEED_MUL_LA10P);
 #else
 		ACCEL_SET(pi_out * SPEED_MUL);
@@ -1221,10 +1228,12 @@ void Speed_loop (void) {
 		torq_corr *= TORQUE_FACTOR;
 #if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control) {
-			pi_out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+			task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+			if (task < SPD_MIN) task = SPD_MIN;
+			pi_out = task;
 		} else {
 			if (SpeedCntrl == EaccControl) {
-				pi_out = EcuPedalPos() * SPEED_FACT_EACC;
+				pi_out += acc_state / 100.0;
 			} else { // SpeedCntrl == ServoControl
 				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
 			}
@@ -1234,7 +1243,7 @@ void Speed_loop (void) {
 		pi_out = ACCEL_STATE * SPEED_FACT;
 		pi_out *= (1 - torq_corr);
 #endif
-		Speed_Out = SPD_MIN + get_obj(&FrequeObj, pi_out);
+		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
 }

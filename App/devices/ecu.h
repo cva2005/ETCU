@@ -6,7 +6,7 @@
 #define SPEED_LOOP_TIME		TSC1_TX_RATE
 #define ECU_CH				10
 #define DAC_OUT_NULL		65  // минимальное значение выхода: 5В * 13%
-#define DAC_OUT_MIN			120  // значение выхода в режиме ХХ: 5В * 24%
+#define DAC_OUT_MIN			120 // значение выхода в режиме ХХ: 5В * 24%
 #define DAC_OUT_MAX			445 // максимальное значение выхода: 5В * 89%
 #define DAC_OUT_FULL		500 // максимальное значение выхода: 5В * 100%
 #define DAC_OUT_DIFF		(DAC_OUT_MAX -  DAC_OUT_MIN)
@@ -40,7 +40,7 @@ uint8_t EcuCruiseControl (float32_t spd, float32_t trq);
 bool EcuCruiseActive (void);
 void EcuCruiseReset (void);
 bool EcuCruiseError (void);
-void EcuPedControl (float32_t out, bool start);
+void EcuPedControl (uint16_t out, bool start);
 void SavePedalPosition (int8_t th);
 void SaveEngineCtr1 (PGN_61444_t * data);
 void SaveEngineTemp (PGN_65262_t* data);
