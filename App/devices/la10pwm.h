@@ -60,10 +60,10 @@ typedef enum {
 #define PWM_PORT			GPIOE
 #define PWM_CH_FORW			TIM_CHANNEL_4 // (PE14 pin)
 #define PWM_CH_REVR			TIM_CHANNEL_3 // (PE13 pin)
-#define PWM_PRD_VAL			65535
+#define PWM_PRD_VAL			16384
 #define FORW_DUTY			TIM_INST->CCR4
 #define REVR_DUTY			TIM_INST->CCR3
-#define DUTY_MIN			0.50f
+#define DUTY_MIN			0.25f
 #define DUTY_MAX			1.00f
 #define ZONE_DEAD			0.01
 #define FORW_MAX			DUTY_MAX

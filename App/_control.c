@@ -55,26 +55,28 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
+static bool pid_init = false;
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP			3.00f
-	#define SPEED_KI			0.10f
-	#define SPEED_KD			0.05f
-//#define SPEED_KP			2.20f
-//#define SPEED_KI			0.005f
-//#define SPEED_KD			0.0f
+	#define SPEED_KP_EA			3.00f
+	#define SPEED_KI_EA			0.10f
+	#define SPEED_KP_SP			1.00f
+	#define SPEED_KI_SP			0.02f
+	#define SPEED_KD			0.001f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.001f
 #else
-	#define SPEED_KP			0.12f
-	#define SPEED_KI			0.0012f
-	#define SPEED_KD			0.0f
+	#define SPEED_KP_EA			0.12f
+	#define SPEED_KI_EA			0.0012f
+	#define SPEED_KP_SP			0.05f
+	#define SPEED_KI_SP			0.0005f
+	#define SPEED_KD			0.00f
 	#define TORQUE_KP			0.10f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
 #endif
-float32_t SpeedKp = SPEED_KP, SpeedKi = SPEED_KI;
+float32_t SpeedKp, SpeedKi;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
 static unsigned StopCount = 0;
 
@@ -651,11 +653,20 @@ void read_keys (void) {
 void work_step (void) {
 	int32_t val;
 
-	if (st(SAVE_PID_VAL)) {
+	if (st(SAVE_PID_VAL) || !pid_init) {
+		pid_init = true;
 		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
 		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
-		SpeedKp = SPEED_KP * (float32_t)(AI_PC_SPEED_KP) / 100.0;
-		SpeedKi = SPEED_KI * (float32_t)(AI_PC_SPEED_KI) / 100.0;
+		float32_t sp_Kp, sp_Ki;
+		if (SpeedCntrl == EaccControl) {
+			sp_Kp = SPEED_KP_EA;
+			sp_Ki = SPEED_KI_EA;
+		} else {
+			sp_Kp = SPEED_KP_SP;
+			sp_Ki = SPEED_KI_SP;
+		}
+		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
+		SpeedKi = sp_Ki * (float32_t)(AI_PC_SPEED_KI) / 100.0;
 		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
 		TorqueKi = TORQUE_KI * (float32_t)(AI_PC_TORQUE_KI) / 100.0;
 		init_PID(); // Регуляторы контуров управления
@@ -1042,9 +1053,9 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 }
 #if UNI_CONTROL
 	#define ZONE_DEAD_EACC		05.0f
-	#define ZONE_DEAD_LA10P		80.0f
+	#define ZONE_DEAD_LA10P		30.0f
 	#define SPEED_MUL_EACC		0.08f
-	#define SPEED_MUL_LA10P		0.50f
+	#define SPEED_MUL_LA10P		0.10f
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
 	#define ACCEL_STATE			servo_get_pos()
@@ -1104,6 +1115,8 @@ void work_stop (void) {
 		}
 	} else if (SpeedCntrl == EaccControl) {
 		EcuPedControl(0.0f, true);
+	} else { // SpeedCntrl == ServoControl
+		if (la10p_get_pos() > 0) la10p_set_out(0);
 	}
 #else
 	ACCEL_SET(0);

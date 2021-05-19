@@ -130,7 +130,11 @@ void la10p_step(void) {
 
 /* servo position in % */
 float32_t la10p_get_pos(void) {
+#if MODEL_NO_SERVO
+	float32_t pos = ((STATE_SENS() - SENS_MIN_VAL) / (SENS_MAX_VAL - SENS_MIN_VAL)) * 100.0;
+#else
 	float32_t pos = ((STATE_SENS() - SensMin) / (SensMax - SensMin)) * 100.0;
+#endif
 	if (pos < 0) pos = 0;
 	if (pos > 100) pos = 100;
 	return pos;
@@ -151,23 +155,25 @@ static void set_PWM_out(float32_t out) {
 	bool revers;
 	if (out > -ZONE_DEAD && out < ZONE_DEAD) {
 		FORW_DUTY = 0;
-		REVR_DUTY = 0;
+		REVR_DUTY = PWM_PRD_VAL;
 		return;
 	}
 	if (out < 0) {
 		revers = true;
-		out = -1.0f;
+		out *= -1.0f;
 		FORW_DUTY = 0;
 	} else {
 		revers = false;
-		REVR_DUTY = 0;
+		REVR_DUTY = PWM_PRD_VAL;
 	}
 	if (out > DUTY_MAX) out = DUTY_MAX;
 	out *= (DUTY_MAX - DUTY_MIN);
 	out += DUTY_MIN;
 	out *= PWM_PRD_VAL;
 	uint16_t duty = (uint16_t)out;
-	if (revers) REVR_DUTY = duty;
+	if (revers) {
+		REVR_DUTY = PWM_PRD_VAL - duty;
+	}
 	else FORW_DUTY = duty;
 }
 
@@ -175,10 +181,10 @@ static float32_t get_PWM_out(void) {
 	float32_t out; bool revers = false;
 	if (FORW_DUTY) {
 		out = (float32_t)FORW_DUTY;
-	} else if (REVR_DUTY) {
+	} else {
 		revers = true;
-		out = (float32_t)REVR_DUTY;
-	} else return 0.0; // STOP state
+		out = (float32_t)(PWM_PRD_VAL - REVR_DUTY);
+	}
 	out /= PWM_PRD_VAL;
 	if (out > DUTY_MIN) {
 		out -= DUTY_MIN;
@@ -211,4 +217,5 @@ static void TIM_PWM_Init(void) {
 	HAL_TIM_PWM_ConfigChannel(&pwm_tim, &sConfigOC, PWM_CH_FORW);
 	HAL_TIM_PWM_Start(&htim1, PWM_CH_REVR);
 	HAL_TIM_PWM_Start(&htim1, PWM_CH_FORW);
+	REVR_DUTY = PWM_PRD_VAL;
 }
