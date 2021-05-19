@@ -1,13 +1,12 @@
 #ifndef LA10PWM_H_
 #define LA10PWM_H_
-#include "arm_math.h"
-#include "_signals.h"
 
 typedef enum {
-	LA10PWM_READY,
-	LA10PWM_NOT_INIT,
-	LA10PWM_INIT_RUN,
-	LA10PWM_STOP_ERR
+	LA10P_POWERED  = 0,
+	LA10P_STOP_ERR = 1,
+	LA10P_NOT_INIT = 2,
+	LA10P_INIT_RUN = 3,
+	LA10P_READY    = 4
 } la10p_st;
 
 typedef enum {
@@ -35,7 +34,7 @@ typedef enum {
 	#define STATE_SENS()	(float32_t)st(AI_T_OIL_OUT)
 #endif
 #define LA10P_FULL_TIME		(ST_LENGT * 1000 / ST_MOVE + 2000) // ms
-#define LA10P_ERR_TIME		LA10P_FULL_TIME
+#define LA10P_ERR_TIME		LA10P_FULL_TIME + 1000
 #define LA10P_MIN_TIME		(LA10P_FULL_TIME - LA10P_FULL_TIME / 4)
 #define LA10P_MUL			6.50f
 #define STEP_TIME			100 // время шага опроса привода, мс
@@ -59,14 +58,20 @@ typedef enum {
 #define PWM_R_PIN			GPIO_PIN_13 // reveres pin
 #define PWM_F_PIN			GPIO_PIN_14 // forward pin
 #define PWM_PORT			GPIOE
-#define PWM_CH_FORW			TIM_CHANNEL_4
-#define PWM_CH_REVR			TIM_CHANNEL_3
+#define PWM_CH_FORW			TIM_CHANNEL_4 // (PE14 pin)
+#define PWM_CH_REVR			TIM_CHANNEL_3 // (PE13 pin)
 #define PWM_PRD_VAL			65535
 #define FORW_DUTY			TIM_INST->CCR4
 #define REVR_DUTY			TIM_INST->CCR3
 #define DUTY_MIN			0.50f
 #define DUTY_MAX			1.00f
 #define ZONE_DEAD			0.01
+#define FORW_MAX			DUTY_MAX
+#define REVR_MAX			(-DUTY_MAX)
+#define STOP_MOV			0.0f
+#define FLOAT_MIN			0.0001
+#define FORW_MOV			get_PWM_out() > FLOAT_MIN
+#define REVR_MOV			get_PWM_out() < -FLOAT_MIN
 
 void la10p_init(void);
 void la10p_step(void);

@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include "_signals.h"
 
-typedef enum {
+/*typedef enum {
 	LA10P_POWERED = 0,
 	LA10P_STOP_ERR = 1,
 	LA10P_NOT_INIT = 2,
 	LA10P_INIT_RUN,
 	LA10P_READY
-} la10p_st;
+} la10p_st;*/
 
 /*
  * Линейный привод: 	LA10P 24В

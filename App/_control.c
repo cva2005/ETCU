@@ -26,7 +26,7 @@
 #include "p_745_3829.h"
 #include "mu110_6U.h"
 #include "servo.h"
-#include "la10p.h"
+#include "la10pwm.h"
 
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
@@ -136,9 +136,15 @@ void signals_start_cfg (void) {
 	sig_cfg[DO_COOLANT_PUMP].fld.number=2;				//Сигнал: Насос ОЖ
 	//sig_cfg[DO_OIL_PUMP].fld.number=3;					//Сигнал: Насос масла
 	sig_cfg[DO_OIL_PUMP].fld.number=1;					//Сигнал: Насос масла (перемещено в BCU)
+#if BAD_HARDWARE
+	sig_cfg[DO_FUEL_PUMP].fld.number=3;					//Сигнал: Включить ТНВД
+	sig_cfg[DO_COOLANT_HEATER].fld.number=6;			//Сигнал: Нагреватель ОЖ
+	sig_cfg[DO_OIL_HEATER].fld.number=7;				//Сигнал: Нагреватель масла
+#else
 	sig_cfg[DO_COOLANT_HEATER].fld.number=4;			//Сигнал: Нагреватель ОЖ
 	sig_cfg[DO_OIL_HEATER].fld.number=5;				//Сигнал: Нагреватель масла
 	sig_cfg[DO_FUEL_PUMP].fld.number=6;					//Сигнал: Включить ТНВД
+#endif
 //настройка сигналов APS---------------------------------
 	for (cnt=AI_T_AIR; cnt<DO_EMERGANCY; cnt++) {
 		sig_cfg[cnt].fld.deivice=APS;

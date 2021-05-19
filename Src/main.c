@@ -62,6 +62,7 @@ HAL_SD_CardInfoTypedef SDCardInfo;
 DMA_HandleTypeDef hdma_sdio_tx;
 DMA_HandleTypeDef hdma_sdio_rx;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
@@ -96,6 +97,7 @@ static void MX_I2C1_Init(void);
 static void MX_RNG_Init(void);
 static void MX_RTC_Init(void);
 static void MX_SDIO_SD_Init(void);
+static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM6_Init(void);
@@ -141,6 +143,7 @@ int main(void)
   MX_RNG_Init();
   MX_RTC_Init();
   MX_SDIO_SD_Init();
+  MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_TIM6_Init();
@@ -506,6 +509,33 @@ void MX_SDIO_SD_Init(void)
 
 }
 
+/* TIM1 init function */
+void MX_TIM1_Init(void)
+{
+
+	  TIM_ClockConfigTypeDef sClockSourceConfig;
+	  TIM_MasterConfigTypeDef sMasterConfig;
+	  TIM_OC_InitTypeDef sConfigOC;
+
+	  htim1.Instance = TIM1;
+	  htim1.Init.Prescaler = 0;
+	  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+	  htim1.Init.Period = 65535;
+	  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	  HAL_TIM_Base_Init(&htim1);
+	  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	  HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig);
+	  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+	  sConfigOC.Pulse = 0;
+	  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+	  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+	  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3);
+	  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4);
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+	  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+}
+
 /* TIM3 init function */
 void MX_TIM3_Init(void)
 {
@@ -723,7 +753,7 @@ void MX_GPIO_Init(void)
                            RELAY5_Pin RELAY6_Pin RELAY7_Pin RELAY8_Pin 
                            LED_MODE_Pin */
   GPIO_InitStruct.Pin = RELAY1_Pin|RELAY2_Pin|RELAY3_Pin|RELAY4_Pin 
-                          |RELAY5_Pin|RELAY6_Pin|RELAY7_Pin|RELAY8_Pin 
+                          |RELAY5_Pin|RELAY6_Pin/*|RELAY7_Pin|RELAY8_Pin*/
                           |LED_MODE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
