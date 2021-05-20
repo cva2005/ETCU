@@ -39,9 +39,9 @@ typedef enum {
 #define LA10P_MUL			6.50f
 #define STEP_TIME			100 // врем€ шага опроса привода, мс
 #define RELE_TIME			200 // врем€ шага управлени€ реле, мс
-#define SENS_MAX_VAL		2970.0f // максимальное выходное значение, м¬
+#define SENS_MAX_VAL		3000.0f // максимальное выходное значение, м¬
 #define SENS_ERR_VAL		3300.0f // максимальное выходное значение, м¬
-#define SENS_MIN_VAL		840.0f // минимальное выходное значение, м¬
+#define SENS_MIN_VAL		700.0f // минимальное выходное значение, м¬
 #define SENS_I_MUL			0.6666666666666667f // входной делитель
 #define SENS_I_mV_A			185.0f // Sensitivity (mV/A)
 #define CURR_SENS_VAL		(float32_t)st(AI_P_MANIFOLD)

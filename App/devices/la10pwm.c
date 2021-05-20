@@ -12,7 +12,7 @@ static float32_t SensMax, SensMin;
 static float32_t TaskVal;
 static float32_t CurrNull;
 static float32_t FullTime;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 static float32_t StateVal;
 #endif
 int32_t curr;
@@ -30,7 +30,7 @@ void la10p_init(void) {
 	step_time = timers_get_finish_time(STEP_TIME);
 	state = LA10P_NOT_INIT;
 	TaskVal = SENS_MIN_VAL;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 	StateVal = SENS_MIN_VAL;
 #endif
 }
@@ -102,7 +102,10 @@ void la10p_step(void) {
 					}
 					state = LA10P_READY;
 					set_PWM_out(STOP_MOV);
-					// ToDo: коррекция диапазона 10...90%
+					float32_t diff = SensMax - SensMin;
+					diff *= 0.10; // коррекция диапазона 10...90%
+					SensMin += diff;
+					SensMax -= diff;
 				}
 			}
 		} else { // state == LA10P_READY
@@ -112,9 +115,9 @@ void la10p_step(void) {
 			if (curr_sens > SENS_I_MAX) goto la10p_error;
 #endif
 			float32_t diff;
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 			diff = get_PWM_out() * STEP_TIME;
-			diff *= TIME_CORR;
+			//diff *= TIME_CORR;
 			diff /= FullTime;
 			diff *= SensMax - SensMin;
 			StateVal += diff;
@@ -131,9 +134,17 @@ void la10p_step(void) {
 /* servo position in % */
 float32_t la10p_get_pos(void) {
 #if MODEL_NO_SERVO
-	float32_t pos = ((STATE_SENS() - SENS_MIN_VAL) / (SENS_MAX_VAL - SENS_MIN_VAL)) * 100.0;
+	float32_t pos = ((STATE_SENS() - SENS_MIN_VAL)
+			/ (SENS_MAX_VAL - SENS_MIN_VAL)) * 100.0;
 #else
-	float32_t pos = ((STATE_SENS() - SensMin) / (SensMax - SensMin)) * 100.0;
+	float32_t pos;
+	if (state == LA10P_READY) {
+		pos = ((STATE_SENS() - SensMin)
+				/ (SensMax - SensMin)) * 100.0;
+	} else {
+		pos = ((STATE_SENS() - SENS_MIN_VAL)
+				/ (SENS_MAX_VAL - SENS_MIN_VAL)) * 100.0;
+	}
 #endif
 	if (pos < 0) pos = 0;
 	if (pos > 100) pos = 100;
@@ -155,7 +166,7 @@ static void set_PWM_out(float32_t out) {
 	bool revers;
 	if (out > -ZONE_DEAD && out < ZONE_DEAD) {
 		FORW_DUTY = 0;
-		REVR_DUTY = PWM_PRD_VAL;
+		REVR_DUTY = /*PWM_PRD_VAL*/0;
 		return;
 	}
 	if (out < 0) {
@@ -164,7 +175,7 @@ static void set_PWM_out(float32_t out) {
 		FORW_DUTY = 0;
 	} else {
 		revers = false;
-		REVR_DUTY = PWM_PRD_VAL;
+		REVR_DUTY = /*PWM_PRD_VAL*/0;
 	}
 	if (out > DUTY_MAX) out = DUTY_MAX;
 	out *= (DUTY_MAX - DUTY_MIN);
@@ -172,7 +183,7 @@ static void set_PWM_out(float32_t out) {
 	out *= PWM_PRD_VAL;
 	uint16_t duty = (uint16_t)out;
 	if (revers) {
-		REVR_DUTY = PWM_PRD_VAL - duty;
+		REVR_DUTY = /*PWM_PRD_VAL -*/ duty;
 	}
 	else FORW_DUTY = duty;
 }
@@ -186,10 +197,10 @@ static float32_t get_PWM_out(void) {
 		out = (float32_t)(PWM_PRD_VAL - REVR_DUTY);
 	}
 	out /= PWM_PRD_VAL;
-	if (out > DUTY_MIN) {
+	/*if (out > DUTY_MIN) {
 		out -= DUTY_MIN;
 		out /= DUTY_MAX - DUTY_MIN;
-	}
+	}*/
 	if (revers) out *= -1.0f;
 	return out;
 }
