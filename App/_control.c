@@ -986,8 +986,8 @@ void set_indication (void) {
 	//set(AO_PC_P_CHARGE, st(AI_P_CHARGE)); //Аналоговый: Давление наддувочного воздуха
 	//set(AO_PC_T_CHARGE, st(AI_T_CHARGE)); //Аналоговый: Температура наддувочного воздуха
 	//set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
-	extern uint32_t curr;
-	set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
+	//extern uint32_t curr;
+	//set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
 	//параметры атмосферы
 	set(AO_PC_T_ENV_AIR, st(AI_T_AIR));
 	set(AO_PC_P_ENV_AIR, st(AI_P_AIR));

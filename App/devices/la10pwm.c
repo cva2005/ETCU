@@ -10,12 +10,12 @@ static stime_t step_time;
 static stime_t err_time;
 static float32_t SensMax, SensMin;
 static float32_t TaskVal;
-static float32_t CurrNull;
+//static float32_t CurrNull;
 static float32_t FullTime;
 #if MODEL_NO_SERVO
 static float32_t StateVal;
 #endif
-int32_t curr;
+//int32_t curr;
 extern TIM_HandleTypeDef pwm_tim;
 
 static void TIM_PWM_Init(void);
@@ -41,7 +41,7 @@ void la10p_step(void) {
 		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
 			return;
 		} else if (state == LA10P_NOT_INIT) {
-			CurrNull = CURR_SENS_VAL;
+			//CurrNull = CURR_SENS_mA;
 			state = LA10P_INIT_RUN;
 			set_PWM_out(FORW_MAX);
 		} else if (state == LA10P_INIT_RUN) {
@@ -109,11 +109,11 @@ void la10p_step(void) {
 				}
 			}
 		} else { // state == LA10P_READY
-#if 0
-			float32_t curr_sens = CURR_SENS_A;
-			curr = (curr_sens * 1000.0);
+			float32_t curr_sens = CURR_SENS_mA;
+			CURR_VIEW(curr_sens * 1000.0f);
+			//set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
+			//curr = (int32_t)(curr_sens * 1000.0f);
 			if (curr_sens > SENS_I_MAX) goto la10p_error;
-#endif
 			float32_t diff;
 #if MODEL_NO_SERVO
 			diff = get_PWM_out() * STEP_TIME;
@@ -166,7 +166,7 @@ static void set_PWM_out(float32_t out) {
 	bool revers;
 	if (out > -ZONE_DEAD && out < ZONE_DEAD) {
 		FORW_DUTY = 0;
-		REVR_DUTY = /*PWM_PRD_VAL*/0;
+		REVR_DUTY = 0;
 		return;
 	}
 	if (out < 0) {
@@ -175,16 +175,14 @@ static void set_PWM_out(float32_t out) {
 		FORW_DUTY = 0;
 	} else {
 		revers = false;
-		REVR_DUTY = /*PWM_PRD_VAL*/0;
+		REVR_DUTY = 0;
 	}
 	if (out > DUTY_MAX) out = DUTY_MAX;
 	out *= (DUTY_MAX - DUTY_MIN);
 	out += DUTY_MIN;
 	out *= PWM_PRD_VAL;
 	uint16_t duty = (uint16_t)out;
-	if (revers) {
-		REVR_DUTY = /*PWM_PRD_VAL -*/ duty;
-	}
+	if (revers) REVR_DUTY = duty;
 	else FORW_DUTY = duty;
 }
 
@@ -197,10 +195,6 @@ static float32_t get_PWM_out(void) {
 		out = (float32_t)(PWM_PRD_VAL - REVR_DUTY);
 	}
 	out /= PWM_PRD_VAL;
-	/*if (out > DUTY_MIN) {
-		out -= DUTY_MIN;
-		out /= DUTY_MAX - DUTY_MIN;
-	}*/
 	if (revers) out *= -1.0f;
 	return out;
 }
@@ -228,5 +222,4 @@ static void TIM_PWM_Init(void) {
 	HAL_TIM_PWM_ConfigChannel(&pwm_tim, &sConfigOC, PWM_CH_FORW);
 	HAL_TIM_PWM_Start(&htim1, PWM_CH_REVR);
 	HAL_TIM_PWM_Start(&htim1, PWM_CH_FORW);
-	REVR_DUTY = PWM_PRD_VAL;
 }

@@ -42,14 +42,12 @@ typedef enum {
 #define SENS_MAX_VAL		3000.0f // максимальное выходное значение, м¬
 #define SENS_ERR_VAL		3300.0f // максимальное выходное значение, м¬
 #define SENS_MIN_VAL		700.0f // минимальное выходное значение, м¬
-#define SENS_I_MUL			0.6666666666666667f // входной делитель
-#define SENS_I_mV_A			185.0f // Sensitivity (mV/A)
-#define CURR_SENS_VAL		(float32_t)st(AI_P_MANIFOLD)
-#define CURR_SENS_mV		((CURR_SENS_VAL - CurrNull) / SENS_I_MUL)
-#define CURR_SENS_A			fabs(CURR_SENS_mV / SENS_I_mV_A)
-#define SENS_I_MAX			4.2f
-#define SENS_I_OFF			0.2f
-#define TIME_CORR			4.0f
+#define SENS_I_Om			0.200f // output current sensor from the DRV8816
+#define SENS_I_Gain			5.00f // Current-proportional output Gain DRV8816
+#define CURR_SENS_mV		(float32_t)st(AI_P_MANIFOLD)
+#define CURR_VIEW(x)		set(AO_PC_P_MANIFOLD, (int32_t)x)
+#define CURR_SENS_mA		(CURR_SENS_mV / (SENS_I_Om * SENS_I_Gain))
+#define SENS_I_MAX			100.0f
 
 #define pwm_tim				htim1
 #define TIM_INST			TIM1
