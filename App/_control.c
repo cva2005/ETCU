@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdlib.h>
-#include "arm_math.h"
 #include "timers.h"
 #include "ecu.h"
 #include "_control.h"
@@ -26,6 +25,7 @@
 #include "mu110_6U.h"
 #include "servo.h"
 #include "la10pwm.h"
+#include "pid_r.h"
 
 extern sig_cfg_t sig_cfg[SIG_END];  //описание сигналов
 extern sg_t sg_st;					//состояние сигналов
@@ -35,8 +35,8 @@ static cmd_t cmd;
 static timeout_t time;
 static error_t error;
 static stime_t cntrl_M_time; // таймер дискретизации регулятора момента
-arm_pid_instance_f32 Speed_PID;
-arm_pid_instance_f32 Torque_PID;
+pid_r_instance Speed_PID;
+pid_r_instance Torque_PID;
 uint16_t safe = 0, sfreq = 0;
 void init_PID (void);
 void Speed_loop (void);
@@ -60,11 +60,13 @@ bool pid_init = false;
 	#define SPEED_KP_EA			3.00f
 	#define SPEED_KI_EA			0.10f
 	#define SPEED_KP_SP			4.00f
-	#define SPEED_KI_SP			0.050f
-	#define SPEED_KD			0.001f
+	#define SPEED_KI_SP			0.060f
+	#define SPEED_KD			0.012f
+	#define SPEED_DF_TAU		0.030f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.001f
+	#define TORQUE_DF_TAU		0.010f
 #else
 	#define SPEED_KP_EA			0.12f
 	#define SPEED_KI_EA			0.0012f
@@ -78,7 +80,6 @@ bool pid_init = false;
 float32_t SpeedKp, SpeedKi;
 float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
 static unsigned StopCount = 0;
-
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -1169,13 +1170,15 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
  */
 void init_PID (void) {
 	Speed_PID.Kp = SpeedKp;
-	Speed_PID.Ki = SpeedKi;
-	Speed_PID.Kd = SPEED_KD;
+	Speed_PID.Ti = 1 / (SpeedKi * SpeedKp);
+	Speed_PID.Td = 1 / (SPEED_KD * SpeedKp);
+	Speed_PID.Tf = SPEED_DF_TAU;
+	pid_r_init(&Speed_PID);
 	Torque_PID.Kp = TorqueKp;
-	Torque_PID.Ki = TorqueKi;
-	Torque_PID.Kd = TORQUE_KD;
-	arm_pid_init_f32(&Speed_PID, PID_RESET);
-	arm_pid_init_f32(&Torque_PID, PID_RESET);
+	Torque_PID.Ti = 1 / (TorqueKi * TorqueKp);
+	Torque_PID.Td = 1 / (TORQUE_KD * TorqueKp);
+	Torque_PID.Tf = TORQUE_DF_TAU;
+	pid_r_init(&Torque_PID);
 }
 
 //#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
@@ -1213,27 +1216,21 @@ void Speed_loop (void) {
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
-		if ((acc_state >= 95.0) && (task > 0)) {
-			Speed_PID.Ki = 0;
-		} else {
-			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
-			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-			if (SpeedCntrl == ServoControl)
-				Speed_PID.Kp *= exp(-tmp / SPEED_MAX);
-		}
-		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
+		//Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+		/*if (SpeedCntrl == ServoControl)
+			Speed_PID.Kp *= exp(-tmp / SPEED_MAX);*/
 #if UNI_CONTROL
-		float32_t zone_dead;
+		float32_t zone_dead = 0;
 		if (SpeedCntrl == EaccControl) {
 			zone_dead = ZONE_DEAD_EACC;
 		} else if (SpeedCntrl == ServoControl) {
 			zone_dead = ZONE_DEAD_LA10P / StSens_K;
 		}
-		if (tmp < zone_dead) task = 0;
+		Speed_PID.Xd = zone_dead;
 #else
 		if (tmp < ZONE_DEAD_REF) task = 0;
 #endif
-		pi_out = arm_pid_f32(&Speed_PID, task);
+		pi_out = pid_r(&Speed_PID, task);
 #if UNI_CONTROL
 		if (SpeedCntrl == EaccControl) {
 			uint16_t acc_out = (uint16_t)(acc_state / 100.0 + (pi_out - SPD_MIN) * SPEED_MUL_EACC);
@@ -1252,7 +1249,7 @@ void Speed_loop (void) {
 			else if (task < SPD_MIN) task = SPD_MIN;
 			pi_out = task;
 		} else {
-			if (SpeedCntrl == EaccControl) {
+			if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
 				pi_out += acc_state / 100.0;
 			} else { // SpeedCntrl == ServoControl
 				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
@@ -1318,9 +1315,9 @@ void Torque_loop (torq_val_t val) {
 			float32_t pi_out, task;
 			task = st(AI_PC_TORQUE) / 1000.0;
 			task -= Torque_Out; // PID input Error
-			pi_out = arm_pid_f32(&Torque_PID, task);
+			pi_out = pid_r(&Torque_PID, task);
 #ifdef MODEL_OBJ
-			Torque_Out = get_obj(&TorqueObj, pi_out);
+			//Torque_Out = get_obj(&TorqueObj, pi_out);
 #endif
 			if (pi_out < 0) pi_out = 0;
 			pi_out *= TORQUE_SCALE;
