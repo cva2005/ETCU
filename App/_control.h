@@ -1,5 +1,6 @@
 #ifndef APP__CONTROL_H_
 #define APP__CONTROL_H_
+#include <stdbool.h>
 #include "_signals.h"
 
 typedef enum {
@@ -8,6 +9,8 @@ typedef enum {
 	ServoControl = 2
 } SpeedCntrl_t;
 
+extern bool pid_init;
+#define PID_REINIT()				pid_init = false
 #define ERROR_CODE					0x7FFFFFFF
 #define DEF_KEY_DELAY				500		//јнтидребезг на кнопки
 #define DEF_MAX_I_SERVO				5000	//максимальный ток сревопривода, мј

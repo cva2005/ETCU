@@ -1,5 +1,4 @@
 #include <string.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include "arm_math.h"
 #include "timers.h"
@@ -55,13 +54,13 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
-static bool pid_init = false;
+bool pid_init = false;
 
 #ifdef MODEL_OBJ
 	#define SPEED_KP_EA			3.00f
 	#define SPEED_KI_EA			0.10f
-	#define SPEED_KP_SP			1.00f
-	#define SPEED_KI_SP			0.02f
+	#define SPEED_KP_SP			4.00f
+	#define SPEED_KI_SP			0.050f
 	#define SPEED_KD			0.001f
 	#define TORQUE_KP			0.20f
 	#define TORQUE_KI			0.01f
@@ -652,7 +651,6 @@ void read_keys (void) {
 //----------------------------------------------------------------------------------------------
 void work_step (void) {
 	int32_t val;
-
 	if (st(SAVE_PID_VAL) || !pid_init) {
 		pid_init = true;
 		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
@@ -662,8 +660,8 @@ void work_step (void) {
 			sp_Kp = SPEED_KP_EA;
 			sp_Ki = SPEED_KI_EA;
 		} else {
-			sp_Kp = SPEED_KP_SP;
-			sp_Ki = SPEED_KI_SP;
+			sp_Kp = SPEED_KP_SP * StSens_K;
+			sp_Ki = SPEED_KI_SP * StSens_K;
 		}
 		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
 		SpeedKi = sp_Ki * (float32_t)(AI_PC_SPEED_KI) / 100.0;
@@ -1156,7 +1154,7 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 	float_t dt, z0, z1, out;
 	uint32_t time = HAL_GetTick();
 	if (obj->st <= time) dt = (float32_t)(time - obj->st);
-	else dt = (float32_t)((0xffffffff - obj->st)  + time);
+	else dt = (float32_t)((0xffffffff - obj->st) + time);
 	z0 = dt / (dt + obj->tau);
 	z1 = 1 - z0;
 	out = (z0 * inp) + (z1 * obj->out);
@@ -1202,9 +1200,9 @@ void Speed_loop (void) {
 		torq_corr = (Torque_Out / TORQUE_MAX);
 		float32_t acc_state;
 #if UNI_CONTROL
-		if (SpeedCntrl == TSC1Control)
+		if (SpeedCntrl == TSC1Control) {
 			EcuCruiseControl(task, torq_corr);
-		else if (SpeedCntrl == EaccControl) {
+		} else if (SpeedCntrl == EaccControl) {
 			acc_state = EcuPedalPos();
 			acc_state /= 1000.0;
 		} else if (SpeedCntrl == ServoControl) {
@@ -1220,6 +1218,8 @@ void Speed_loop (void) {
 		} else {
 			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
 			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+			if (SpeedCntrl == ServoControl)
+				Speed_PID.Kp *= exp(-tmp / SPEED_MAX);
 		}
 		arm_pid_init_f32(&Speed_PID, PID_NO_RESET);
 #if UNI_CONTROL
@@ -1227,7 +1227,7 @@ void Speed_loop (void) {
 		if (SpeedCntrl == EaccControl) {
 			zone_dead = ZONE_DEAD_EACC;
 		} else if (SpeedCntrl == ServoControl) {
-			zone_dead = ZONE_DEAD_LA10P;
+			zone_dead = ZONE_DEAD_LA10P / StSens_K;
 		}
 		if (tmp < zone_dead) task = 0;
 #else
@@ -1248,7 +1248,8 @@ void Speed_loop (void) {
 #if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control) {
 			task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
-			if (task < SPD_MIN) task = SPD_MIN;
+			if (!EcuCruiseActive()) task = SPD_ERR;
+			else if (task < SPD_MIN) task = SPD_MIN;
 			pi_out = task;
 		} else {
 			if (SpeedCntrl == EaccControl) {

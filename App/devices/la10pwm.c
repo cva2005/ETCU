@@ -9,14 +9,14 @@ static la10p_st state = LA10P_POWERED;
 static stime_t step_time;
 static stime_t err_time;
 static float32_t SensMax, SensMin;
+static float32_t CurrWork;
 static float32_t TaskVal;
-//static float32_t CurrNull;
 static float32_t FullTime;
 #if MODEL_NO_SERVO
 static float32_t StateVal;
 #endif
-//int32_t curr;
 extern TIM_HandleTypeDef pwm_tim;
+float32_t StSens_K;
 
 static void TIM_PWM_Init(void);
 static void set_PWM_out(float32_t out);
@@ -26,6 +26,8 @@ void la10p_init(void) {
 	TIM_PWM_Init();
 	SensMin = SENS_MAX_VAL;
 	SensMax = SENS_MIN_VAL;
+	CurrWork = 0.0f;
+	FullTime = 0;
 	err_time = timers_get_finish_time(LA10P_ERR_TIME);
 	step_time = timers_get_finish_time(STEP_TIME);
 	state = LA10P_NOT_INIT;
@@ -41,7 +43,6 @@ void la10p_step(void) {
 		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
 			return;
 		} else if (state == LA10P_NOT_INIT) {
-			//CurrNull = CURR_SENS_mA;
 			state = LA10P_INIT_RUN;
 			set_PWM_out(FORW_MAX);
 		} else if (state == LA10P_INIT_RUN) {
@@ -63,11 +64,19 @@ void la10p_step(void) {
 			}
 #endif
 			float32_t st_sens = STATE_SENS();
-			float32_t curr_sens = /*CURR_SENS_A*/0;
+			float32_t curr_sens = CURR_SENS_mA;
+			/*if (curr_sens > SENS_I_MAX) {
+				goto forw_stop;
+			}*/
 			if (FORW_MOV) { // движение вперед
-				if ((curr_sens > SENS_I_MAX) /*|| (curr_sens < SENS_I_OFF)*/) {
-					goto forw_stop;
+				if (FullTime < CHECK_TIME) {
+					if (CurrWork < curr_sens) CurrWork = curr_sens;
+				} else if (FullTime == CHECK_TIME) {
+					CurrWork *= CURR_LIMIT;
+				} else {
+					if (curr_sens > CurrWork) goto forw_stop;
 				}
+				FullTime += STEP_TIME;
 				if (st_sens > SensMax) {
 					SensMax = st_sens;
 				} else {
@@ -76,7 +85,7 @@ void la10p_step(void) {
 					// ToDo: в крайнем выдвинутом положении сразу назад
 					if ((SensMax == SENS_MIN_VAL) || // не двигались
 						(SensMax > SENS_MAX_VAL) || // велико показ. датчика
-						(SensMax < SENS_MAX_VAL / 4)) { // мало показ. датчика
+						(SensMax < (SENS_MAX_VAL - SENS_MIN_VAL) / 4)) { // мало показ. датчика
 						goto la10p_error;
 					}
 					set_PWM_out(REVR_MAX);
@@ -84,10 +93,7 @@ void la10p_step(void) {
 					err_time = timers_get_finish_time(LA10P_ERR_TIME);
 				}
 			} else { // движение назад
-				// ToDo: почему срабатывает?
-				/*if ((curr_sens > SENS_I_MAX) || (curr_sens < SENS_I_OFF)) {
-					goto revers_stop;
-				}*/
+				if (curr_sens > CurrWork) goto revers_stop;
 				if (st_sens < SensMin) {
 					SensMin = st_sens;
 					FullTime += STEP_TIME;
@@ -96,28 +102,26 @@ void la10p_step(void) {
 					if ((SensMin == SENS_MAX_VAL) || // не двигались
 						(SensMin < SENS_MIN_VAL) || // мало показ. датчика
 						(timers_get_time_left(err_time) > LA10P_MIN_TIME) || // мало время хода
-						(SensMax - SensMin < SENS_MAX_VAL / 2) || // мал диапаз. знач. датчика
-						(SensMin > SENS_MAX_VAL / 2)) { // велико показ. датчика
+						(SensMax - SensMin < (SENS_MAX_VAL - SENS_MIN_VAL) / 4)) { // мало показ. датчика
 						goto la10p_error;
 					}
 					state = LA10P_READY;
-					set_PWM_out(STOP_MOV);
 					float32_t diff = SensMax - SensMin;
-					diff *= 0.10; // коррекция диапазона 10...90%
+					diff *= SAFE_VAL;
 					SensMin += diff;
 					SensMax -= diff;
+					StSens_K = (SensMax - SensMin) / (SENS_MAX_VAL - SENS_MIN_VAL);
+					PID_REINIT();
+					set_PWM_out(STOP_MOV);
 				}
 			}
 		} else { // state == LA10P_READY
 			float32_t curr_sens = CURR_SENS_mA;
 			CURR_VIEW(curr_sens * 1000.0f);
-			//set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
-			//curr = (int32_t)(curr_sens * 1000.0f);
 			if (curr_sens > SENS_I_MAX) goto la10p_error;
 			float32_t diff;
 #if MODEL_NO_SERVO
 			diff = get_PWM_out() * STEP_TIME;
-			//diff *= TIME_CORR;
 			diff /= FullTime;
 			diff *= SensMax - SensMin;
 			StateVal += diff;
@@ -165,17 +169,17 @@ la10p_st la10p_state(void) {
 static void set_PWM_out(float32_t out) {
 	bool revers;
 	if (out > -ZONE_DEAD && out < ZONE_DEAD) {
-		FORW_DUTY = 0;
-		REVR_DUTY = 0;
+		FORW_DUTY = 0; FORW_LED(OFF);
+		REVR_DUTY = 0; REVR_LED(OFF);
 		return;
 	}
 	if (out < 0) {
 		revers = true;
-		out *= -1.0f;
-		FORW_DUTY = 0;
+		out *= -1.0f; REVR_LED(ON);
+		FORW_DUTY = 0; FORW_LED(OFF);
 	} else {
-		revers = false;
-		REVR_DUTY = 0;
+		revers = false; FORW_LED(ON);
+		REVR_DUTY = 0; REVR_LED(OFF);
 	}
 	if (out > DUTY_MAX) out = DUTY_MAX;
 	out *= (DUTY_MAX - DUTY_MIN);
@@ -200,7 +204,7 @@ static float32_t get_PWM_out(void) {
 }
 
 /*
- * PWM Period: 100uS (Fpwm = 100kHz)
+ * PWM Period: 100uS (Fpwm = 10kHz)
  */
 static void TIM_PWM_Init(void) {
 	TIM_MasterConfigTypeDef sMasterConfig;

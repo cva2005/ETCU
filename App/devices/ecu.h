@@ -30,6 +30,7 @@
 //#define SPD_MAX				2850.0f
 #define SPD_MAX				4000.0f
 #define SPD_MIN				700.0f
+#define SPD_ERR				1000.0f
 #define SPD_DIFF			(SPD_MAX - SPD_MIN)
 #define	PERC_10				10000
 #define	DEMPH_VAL			20
