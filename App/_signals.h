@@ -212,9 +212,9 @@ enum {
 #define AI_PC_TORQUE_KP_KI	AI_PC_TIME
 #define AO_PC_SPEED_KP_KI	AO_PC_DATE
 #define AO_PC_TORQUE_KP_KI	AO_PC_TIME
-#define AI_PC_SPEED_KI		(st(AI_PC_SPEED_KP_KI) & 0xFFFF)
+#define AI_PC_SPEED_TI		(st(AI_PC_SPEED_KP_KI) & 0xFFFF)
 #define AI_PC_SPEED_KP		(st(AI_PC_SPEED_KP_KI) >> 16)
-#define AI_PC_TORQUE_KI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
+#define AI_PC_TORQUE_TI		(st(AI_PC_TORQUE_KP_KI) & 0xFFFF)
 #define AI_PC_TORQUE_KP		(st(AI_PC_TORQUE_KP_KI) >> 16)
 #define ENGINE_KEY_TASK		DI_PC_FIRE_ALARM // Сигнал: Включить зажигание
 #define ENGINE_ON_LED		DO_PC_STARTER // Сигнал: Включено зажигание

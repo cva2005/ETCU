@@ -57,28 +57,30 @@ static bool Ready;
 bool pid_init = false;
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP_EA			3.00f
-	#define SPEED_KI_EA			0.10f
+	#define SPEED_KP_EA			03.00f
+	#define SPEED_TI_EA			10.00f
 	#define SPEED_KP_SP			4.00f
-	#define SPEED_KI_SP			0.060f
-	#define SPEED_KD			0.012f
-	#define SPEED_DF_TAU		0.030f
-	#define TORQUE_KP			0.20f
-	#define TORQUE_KI			0.01f
-	#define TORQUE_KD			0.001f
+	#define SPEED_TI_SP			280.00f
+	#define SPEED_TD			35.00f
+	#define SPEED_DF_TAU		00.03f
+	#define TORQUE_KP			00.20f
+	#define TORQUE_TI			10.00f
+	#define TORQUE_TD			1.00f
 	#define TORQUE_DF_TAU		0.010f
 #else
-	#define SPEED_KP_EA			0.12f
-	#define SPEED_KI_EA			0.0012f
-	#define SPEED_KP_SP			0.05f
-	#define SPEED_KI_SP			0.0005f
-	#define SPEED_KD			0.00f
-	#define TORQUE_KP			0.10f
-	#define TORQUE_KI			0.01f
-	#define TORQUE_KD			0.0001f
+	#define SPEED_KP_EA			00.30f
+	#define SPEED_TI_EA			100.00f
+	#define SPEED_KP_SP			10.00f
+	#define SPEED_TI_SP			280.00f
+	#define SPEED_TD			35.00f
+	#define SPEED_DF_TAU		00.01f
+	#define TORQUE_KP			00.20f
+	#define TORQUE_TI			10.00f
+	#define TORQUE_TD			1.00f
+	#define TORQUE_DF_TAU		0.0050f
 #endif
-float32_t SpeedKp, SpeedKi;
-float32_t TorqueKp = TORQUE_KP, TorqueKi = TORQUE_KI;
+float32_t SpeedKp, SpeedTi;
+float32_t TorqueKp, TorqueTi;
 static unsigned StopCount = 0;
 
 void signals_start_cfg (void) {
@@ -656,18 +658,18 @@ void work_step (void) {
 		pid_init = true;
 		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
 		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
-		float32_t sp_Kp, sp_Ki;
+		float32_t sp_Kp, sp_Ti;
 		if (SpeedCntrl == EaccControl) {
 			sp_Kp = SPEED_KP_EA;
-			sp_Ki = SPEED_KI_EA;
+			sp_Ti = SPEED_TI_EA;
 		} else {
 			sp_Kp = SPEED_KP_SP * StSens_K;
-			sp_Ki = SPEED_KI_SP * StSens_K;
+			sp_Ti = SPEED_TI_SP * StSens_K;
 		}
 		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
-		SpeedKi = sp_Ki * (float32_t)(AI_PC_SPEED_KI) / 100.0;
+		SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
 		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
-		TorqueKi = TORQUE_KI * (float32_t)(AI_PC_TORQUE_KI) / 100.0;
+		TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
 		init_PID(); // Регуляторы контуров управления
 	}
 //--------------------ОБКАТКА----------------------------
@@ -1165,22 +1167,6 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 }
 #endif
 
-/*
- * Инициализация контуров регулирования
- */
-void init_PID (void) {
-	Speed_PID.Kp = SpeedKp;
-	Speed_PID.Ti = 1 / (SpeedKi * SpeedKp);
-	Speed_PID.Td = 1 / (SPEED_KD * SpeedKp);
-	Speed_PID.Tf = SPEED_DF_TAU;
-	pid_r_init(&Speed_PID);
-	Torque_PID.Kp = TorqueKp;
-	Torque_PID.Ti = 1 / (TorqueKi * TorqueKp);
-	Torque_PID.Td = 1 / (TORQUE_KD * TorqueKp);
-	Torque_PID.Tf = TORQUE_DF_TAU;
-	pid_r_init(&Torque_PID);
-}
-
 //#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.2f
@@ -1191,6 +1177,23 @@ void init_PID (void) {
 #else
 #define SPEED_FACT			45.0f
 #endif
+
+/*
+ * Инициализация контуров регулирования
+ */
+void init_PID (void) {
+	pid_r_init(&Speed_PID);
+	Speed_PID.Kp = SpeedKp;
+	Speed_PID.Ti = SpeedTi;
+	Speed_PID.Td = SPEED_TD;
+	Speed_PID.Tf = SPEED_DF_TAU;
+	pid_r_init(&Torque_PID);
+	Torque_PID.Kp = TorqueKp;
+	Torque_PID.Ti = TorqueTi;
+	Torque_PID.Td = TORQUE_TD;
+	Torque_PID.Tf = TORQUE_DF_TAU;
+}
+
 /*
  * Управление контуром оборотов
  */
@@ -1216,9 +1219,18 @@ void Speed_loop (void) {
 #endif
 		task -= Speed_Out; // PID input Error
 		float32_t tmp = fabs(task);
-		//Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-		/*if (SpeedCntrl == ServoControl)
+		/*Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+		if (SpeedCntrl == ServoControl)
 			Speed_PID.Kp *= exp(-tmp / SPEED_MAX);*/
+		/*if (((acc_state >= 95.0) && (task > 0)) ||
+				((acc_state <= 5.0) && (task < 0))) {
+			Speed_PID.Xi = 0;
+		}*/ /*else {
+			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
+			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+			if (SpeedCntrl == ServoControl)
+				Speed_PID.Kp *= exp(-tmp / SPEED_MAX);
+		}*/
 #if UNI_CONTROL
 		float32_t zone_dead = 0;
 		if (SpeedCntrl == EaccControl) {
@@ -1233,7 +1245,8 @@ void Speed_loop (void) {
 		pi_out = pid_r(&Speed_PID, task);
 #if UNI_CONTROL
 		if (SpeedCntrl == EaccControl) {
-			uint16_t acc_out = (uint16_t)(acc_state / 100.0 + (pi_out - SPD_MIN) * SPEED_MUL_EACC);
+			uint16_t acc_out = (uint16_t)(acc_state / 100.0
+					+ (pi_out - SPD_MIN) * SPEED_MUL_EACC);
 			EcuPedControl(acc_out, true);
 		} else if (SpeedCntrl == ServoControl)
 			la10p_set_out(pi_out * SPEED_MUL_LA10P);
@@ -1300,15 +1313,18 @@ void Torque_loop (torq_val_t val) {
 			pwm1_out = st(AI_PC_TORQUE) & 0xFFFF; // Гидро Насос
 			pwm2_out = st(AI_PC_TORQUE) >> 16; // Гидро Клапан
 #ifdef MODEL_OBJ
-			pwm_out = (pwm1_out * 2) + (pwm2_out * 8); // распределение воздествия 1:4
-			Torque_Out = ((float32_t)pwm_out * PERCENT_FACTOR) * TFILTER_TAU + Torque_Out * (1.0 - TFILTER_TAU);
+			pwm_out = (pwm1_out * 2) + (pwm2_out * 8); // распр. возд. 1:4
+			Torque_Out = ((float32_t)pwm_out * PERCENT_FACTOR)
+				* TFILTER_TAU + Torque_Out * (1.0 - TFILTER_TAU);
 #endif
 			pwm1_out = pwm1_out * (PWM_SCALE / 10000); // Гидро Насос
 			if (pwm1_out > PWM_SCALE) pwm1_out = PWM_SCALE;
 			pwm2_out = pwm2_out * (PWM_SCALE / 10000); // Гидро Клапан
 			if (pwm2_out > PWM_SCALE) pwm2_out = PWM_SCALE;
-			pwm1_out = (uint32_t)((float32_t)pwm1_out * TFILTER_TAU + (float32_t)Pwm1_Out * (1.0 - TFILTER_TAU));
-			pwm2_out = (uint32_t)((float32_t)pwm2_out * TFILTER_TAU + (float32_t)Pwm2_Out * (1.0 - TFILTER_TAU));
+			pwm1_out = (uint32_t)((float32_t)pwm1_out
+					* TFILTER_TAU + (float32_t)Pwm1_Out * (1.0 - TFILTER_TAU));
+			pwm2_out = (uint32_t)((float32_t)pwm2_out
+					* TFILTER_TAU + (float32_t)Pwm2_Out * (1.0 - TFILTER_TAU));
 			Pwm1_Out = pwm1_out;
 			Pwm2_Out = pwm2_out;
 		} else { // val_type == Absolute
@@ -1317,7 +1333,7 @@ void Torque_loop (torq_val_t val) {
 			task -= Torque_Out; // PID input Error
 			pi_out = pid_r(&Torque_PID, task);
 #ifdef MODEL_OBJ
-			//Torque_Out = get_obj(&TorqueObj, pi_out);
+			Torque_Out = get_obj(&TorqueObj, pi_out);
 #endif
 			if (pi_out < 0) pi_out = 0;
 			pi_out *= TORQUE_SCALE;
