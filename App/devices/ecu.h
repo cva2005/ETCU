@@ -41,7 +41,7 @@ uint8_t EcuCruiseControl (float32_t spd, float32_t trq);
 bool EcuCruiseActive (void);
 void EcuCruiseReset (void);
 bool EcuCruiseError (void);
-void EcuPedControl (uint16_t out, bool start);
+void EcuPedControl (float32_t pid_out);
 void SavePedalPosition (int8_t th);
 void SaveEngineCtr1 (PGN_61444_t * data);
 void SaveEngineTemp (PGN_65262_t* data);

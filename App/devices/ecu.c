@@ -89,14 +89,11 @@ void SaveEngineCtr1 (PGN_61444_t *data) {
 	CurrSA = data->SourceAddress;
 }
 
-void EcuPedControl (uint16_t out, bool start) {
-	uint16_t out_min;
-	if (start) out_min = DAC_OUT_MIN;
-	else out_min = DAC_OUT_NULL;
-	out += out_min;
-	if (out > DAC_OUT_MAX) out = DAC_OUT_MAX;
-	mu6u_set_out(out); // уст. выходы DAC0, DAC1
-	PedalPos = out * (100000 / DAC_OUT_FULL); // положение сервопривода %
+void EcuPedControl (float32_t pid_out) {
+	pid_out += DAC_OUT_MIN;
+	if (pid_out > DAC_OUT_MAX) pid_out = DAC_OUT_MAX;
+	mu6u_set_out(pid_out); // уст. выходы DAC0, DAC1
+	PedalPos = (int32_t)pid_out * (100000 / DAC_OUT_FULL);
 }
 
 uint8_t EcuPedError (void) {

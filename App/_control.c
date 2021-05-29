@@ -62,11 +62,11 @@ bool pid_init = false;
 	#define SPEED_KP_SP			4.00f
 	#define SPEED_TI_SP			280.00f
 	#define SPEED_TD			35.00f
-	#define SPEED_DF_TAU		00.03f
+	#define SPEED_DF_TAU		30.0f
 	#define TORQUE_KP			00.20f
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			1.00f
-	#define TORQUE_DF_TAU		0.010f
+	#define TORQUE_DF_TAU		100.0f
 #else
 	#define SPEED_KP_EA			00.30f
 	#define SPEED_TI_EA			100.00f
@@ -303,7 +303,7 @@ void control_init(void) {
 #endif
 #if UNI_CONTROL
 	mu6u_init(CH2, ADR_MU6U);
-	EcuPedControl (0.0f, false);
+	EcuPedControl (0.0f);
 #elif SPSH_CONTROL
 	spsh20_init(SPSH20_ADR);
 #elif SERVO_CONTROL
@@ -462,6 +462,7 @@ void read_devices (void) {
 				goto select_1;
 			} else if (EcuCruiseError()) {
 				SpeedCntrl = EaccControl;
+				pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
 				goto error_1;
 			}
 		} else {
@@ -485,6 +486,7 @@ void read_devices (void) {
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
+				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				state.step = ST_STOP;
 				cmd.opr = ST_STOP;
 				goto error_2;
@@ -1115,7 +1117,7 @@ void work_stop (void) {
 			} else EcuCruiseReset();
 		}
 	} else if (SpeedCntrl == EaccControl) {
-		EcuPedControl(0.0f, true);
+		EcuPedControl(0.0f);
 	} else { // SpeedCntrl == ServoControl
 		if (la10p_get_pos() > 0) la10p_set_out(0);
 	}
@@ -1201,6 +1203,7 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
+		if (pid_tune_step() == TUNE_PROCEED) return;
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		if (task < SPD_MIN) task = SPD_MIN;
 		torq_corr = (Torque_Out / TORQUE_MAX);
@@ -1218,8 +1221,8 @@ void Speed_loop (void) {
 		acc_state = ACCEL_STATE;
 #endif
 		task -= Speed_Out; // PID input Error
-		float32_t tmp = fabs(task);
-		/*Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+		/*float32_t tmp = fabs(task);
+		Speed_PID.Kp = SpeedKp * (1 + torq_corr);
 		if (SpeedCntrl == ServoControl)
 			Speed_PID.Kp *= exp(-tmp / SPEED_MAX);*/
 		/*if (((acc_state >= 95.0) && (task > 0)) ||
@@ -1244,10 +1247,10 @@ void Speed_loop (void) {
 #endif
 		pi_out = pid_r(&Speed_PID, task);
 #if UNI_CONTROL
-		if (SpeedCntrl == EaccControl) {
-			uint16_t acc_out = (uint16_t)(acc_state / 100.0
-					+ (pi_out - SPD_MIN) * SPEED_MUL_EACC);
-			EcuPedControl(acc_out, true);
+		if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
+			float32_t acc_out = acc_state / 100.0
+					+ (pi_out - SPD_MIN) * SPEED_MUL_EACC;
+			EcuPedControl(acc_out);
 		} else if (SpeedCntrl == ServoControl)
 			la10p_set_out(pi_out * SPEED_MUL_LA10P);
 #else

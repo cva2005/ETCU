@@ -158,8 +158,8 @@ float32_t la10p_get_pos(void) {
 /* set position of control */
 void la10p_set_out(float32_t pid_out) {
 	TaskVal = SensMin + pid_out * LA10P_MUL;
-	if (TaskVal > (float32_t)SensMax) TaskVal = SensMax;
-	if (TaskVal < (float32_t)SensMin) TaskVal = SensMin;
+	if (TaskVal > SensMax) TaskVal = SensMax;
+	if (TaskVal < SensMin) TaskVal = SensMin;
 }
 
 la10p_st la10p_state(void) {
