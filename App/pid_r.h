@@ -33,6 +33,7 @@ typedef void (*pf_ctl) (float32_t y);
 void pid_r_init (pid_r_instance *S);
 void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl);
 tune_st pid_tune_step (void);
+float32_t pid_tune_out (void);
 
 static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     float32_t e[ST_SIZE + 1], D, Df, P, I, out;

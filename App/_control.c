@@ -1203,7 +1203,17 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		if (pid_tune_step() == TUNE_PROCEED) return;
+		if (pid_tune_step() == TUNE_PROCEED) {
+#ifdef MODEL_OBJ
+			if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
+				pi_out = (float32_t)EcuPedalPos() / 100.0;
+			} else { // SpeedCntrl == ServoControl
+				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
+			}
+			Speed_Out = get_obj(&FrequeObj, pi_out);
+#endif // MODEL_OBJ
+			return;
+		}
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		if (task < SPD_MIN) task = SPD_MIN;
 		torq_corr = (Torque_Out / TORQUE_MAX);
