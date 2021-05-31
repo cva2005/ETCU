@@ -96,6 +96,85 @@ typedef struct {
 #define SFREQ	1
 #endif
 
+#ifdef MODEL_OBJ
+	#define SPEED_KP_EA			03.00f
+	#define SPEED_TI_EA			10.00f
+	#define SPEED_KP_SP			4.00f
+	#define SPEED_TI_SP			280.00f
+	#define SPEED_TD			35.00f
+	#define SPEED_DF_TAU		30.0f
+	#define TORQUE_KP			00.20f
+	#define TORQUE_TI			10.00f
+	#define TORQUE_TD			1.00f
+	#define TORQUE_DF_TAU		100.0f
+#else
+	#define SPEED_KP_EA			00.30f
+	#define SPEED_TI_EA			100.00f
+	#define SPEED_KP_SP			10.00f
+	#define SPEED_TI_SP			280.00f
+	#define SPEED_TD			35.00f
+	#define SPEED_DF_TAU		00.01f
+	#define TORQUE_KP			00.20f
+	#define TORQUE_TI			10.00f
+	#define TORQUE_TD			1.00f
+	#define TORQUE_DF_TAU		0.0050f
+#endif
+
+#if UNI_CONTROL
+	#define ZONE_DEAD_EACC		05.0f
+	#define ZONE_DEAD_LA10P		30.0f
+	#define SPEED_MUL_EACC		0.08f
+	#define SPEED_MUL_LA10P		0.10f
+#elif SERVO_CONTROL
+	#define ACCEL_SET			servo_set_out
+	#define ACCEL_STATE			servo_get_pos()
+	#define ZONE_DEAD_REF		80.0f
+	#define SPEED_MUL			1.20f
+#elif SPSH_CONTROL
+	#define ACCEL_SET			spsh20_set_pos
+	#define ACCEL_STATE			(float32_t)(spsh20_get_pos() / 1000)
+	#define ZONE_DEAD_REF		20.0f
+	#define SPEED_MUL			-40.00f
+#else
+	#error "Accelerator driver not defined"
+#endif
+
+//#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
+#define TORQUE_MAX			400.0f // Нм
+#define TORQUE_FACTOR		0.2f
+#define SPEED_MAX			2000.0f
+#if UNI_CONTROL
+#define SPEED_FACT_EACC		0.04f
+#define SPEED_FACT_LA10P	45.0f
+#else
+#define SPEED_FACT			45.0f
+#endif
+
+#define TORQUE_LOOP_TIME	200 // дискретизация по времени контура крутящего момента, мс
+#define SPEED_DIFF			50
+#define PWM_SCALE			100000U
+#define PWM_FSCALE			100000.0f
+#define PWM_PERCENT			(PWM_SCALE / 100000)
+#define SCALE_DIV			4U // разбивка диапазона нагнетания между насосом и клапаном 1:4
+#define VALVE_DIV			8U
+#define VALVE_NULL			(PWM_SCALE / VALVE_DIV) // начальный угол закрытия клапана 20...30%
+#define PERCENT_FACTOR		0.008f
+#define TFILTER_TAU			0.2f
+#define VALVE_MIN			0.10f
+#define PWM_V_MIN			(VALVE_MIN * PWM_FSCALE)
+#define VALVE_MAX			0.80f
+#define PWM_V_MAX			(VALVE_MAX * PWM_FSCALE)
+#define PUMP_MIN			0.20f
+#define PWM_P_MIN			(PUMP_MIN * PWM_FSCALE)
+#define PUMP_MAX			0.80f
+#define PWM_P_MAX			(PUMP_MAX * PWM_FSCALE)
+
+#ifdef MODEL_OBJ
+	#define TORQUE_SCALE	153.846f
+#else
+	#define TORQUE_SCALE	153.846f
+#endif // MODEL_OBJ
+
 void control_init (void); //инициализация системы управления
 void control_step (void); //1 шаг алгоритма управления
 void signals_start_cfg (void);

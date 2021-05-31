@@ -55,30 +55,6 @@ bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
 bool pid_init = false;
-
-#ifdef MODEL_OBJ
-	#define SPEED_KP_EA			03.00f
-	#define SPEED_TI_EA			10.00f
-	#define SPEED_KP_SP			4.00f
-	#define SPEED_TI_SP			280.00f
-	#define SPEED_TD			35.00f
-	#define SPEED_DF_TAU		30.0f
-	#define TORQUE_KP			00.20f
-	#define TORQUE_TI			10.00f
-	#define TORQUE_TD			1.00f
-	#define TORQUE_DF_TAU		100.0f
-#else
-	#define SPEED_KP_EA			00.30f
-	#define SPEED_TI_EA			100.00f
-	#define SPEED_KP_SP			10.00f
-	#define SPEED_TI_SP			280.00f
-	#define SPEED_TD			35.00f
-	#define SPEED_DF_TAU		00.01f
-	#define TORQUE_KP			00.20f
-	#define TORQUE_TI			10.00f
-	#define TORQUE_TD			1.00f
-	#define TORQUE_DF_TAU		0.0050f
-#endif
 float32_t SpeedKp, SpeedTi;
 float32_t TorqueKp, TorqueTi;
 static unsigned StopCount = 0;
@@ -462,7 +438,7 @@ void read_devices (void) {
 				goto select_1;
 			} else if (EcuCruiseError()) {
 				SpeedCntrl = EaccControl;
-				pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
+				//pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
 				goto error_1;
 			}
 		} else {
@@ -486,6 +462,7 @@ void read_devices (void) {
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
+				Speed_PID.d = 500.0f;
 				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				state.step = ST_STOP;
 				cmd.opr = ST_STOP;
@@ -665,8 +642,8 @@ void work_step (void) {
 			sp_Kp = SPEED_KP_EA;
 			sp_Ti = SPEED_TI_EA;
 		} else {
-			sp_Kp = SPEED_KP_SP * StSens_K;
-			sp_Ti = SPEED_TI_SP * StSens_K;
+			sp_Kp = SPEED_KP_SP /** StSens_K*/;
+			sp_Ti = SPEED_TI_SP /** StSens_K*/;
 		}
 		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
 		SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
@@ -1054,24 +1031,6 @@ uint8_t chek_out_val (int32_t val1, int32_t val2, int32_t delta) {
 	if ((val < -delta) || (val > delta)) return 0;
 	return 1;
 }
-#if UNI_CONTROL
-	#define ZONE_DEAD_EACC		05.0f
-	#define ZONE_DEAD_LA10P		30.0f
-	#define SPEED_MUL_EACC		0.08f
-	#define SPEED_MUL_LA10P		0.10f
-#elif SERVO_CONTROL
-	#define ACCEL_SET			servo_set_out
-	#define ACCEL_STATE			servo_get_pos()
-	#define ZONE_DEAD_REF		80.0f
-	#define SPEED_MUL			1.20f
-#elif SPSH_CONTROL
-	#define ACCEL_SET			spsh20_set_pos
-	#define ACCEL_STATE			(float32_t)(spsh20_get_pos() / 1000)
-	#define ZONE_DEAD_REF		20.0f
-	#define SPEED_MUL			-40.00f
-#else
-	#error "Accelerator driver not defined"
-#endif
 
 //----------------------------------------------------------------------------------------------
 void work_stop (void) {
@@ -1103,7 +1062,8 @@ void work_stop (void) {
 		set(DO_FUEL_PUMP, OFF);
 	}
 	set(AO_SERVO_POSITION, 0);
-	init_PID();
+	//init_PID();
+	pid_init = false;
 #if UNI_CONTROL
 	if (SpeedCntrl == TSC1Control) {
 		if (timers_get_time_left(time.alg) == 0) { // останов
@@ -1167,17 +1127,6 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 	obj->st = time;
 	return out;
 }
-#endif
-
-//#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
-#define TORQUE_MAX			400.0f // Нм
-#define TORQUE_FACTOR		0.2f
-#define SPEED_MAX			2000.0f
-#if UNI_CONTROL
-#define SPEED_FACT_EACC		0.04f
-#define SPEED_FACT_LA10P	45.0f
-#else
-#define SPEED_FACT			45.0f
 #endif
 
 /*
@@ -1291,30 +1240,6 @@ void Speed_loop (void) {
 	}
 }
 
-#define TORQUE_LOOP_TIME	200 // дискретизация по времени контура крутящего момента, мс
-#define SPEED_DIFF			50
-#define PWM_SCALE			100000U
-#define PWM_FSCALE			100000.0f
-#define PWM_PERCENT			(PWM_SCALE / 100000)
-#define SCALE_DIV			4U // разбивка диапазона нагнетания между насосом и клапаном 1:4
-#define VALVE_DIV			8U
-#define VALVE_NULL			(PWM_SCALE / VALVE_DIV) // начальный угол закрытия клапана 20...30%
-#define PERCENT_FACTOR		0.008f
-#define TFILTER_TAU			0.2f
-#define VALVE_MIN			0.10f
-#define PWM_V_MIN			(VALVE_MIN * PWM_FSCALE)
-#define VALVE_MAX			0.80f
-#define PWM_V_MAX			(VALVE_MAX * PWM_FSCALE)
-#define PUMP_MIN			0.20f
-#define PWM_P_MIN			(PUMP_MIN * PWM_FSCALE)
-#define PUMP_MAX			0.80f
-#define PWM_P_MAX			(PUMP_MAX * PWM_FSCALE)
-
-#ifdef MODEL_OBJ
-	#define TORQUE_SCALE	153.846f
-#else
-	#define TORQUE_SCALE	153.846f
-#endif // MODEL_OBJ
 /*
  * Управление контуром крутящего момента
  */

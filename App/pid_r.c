@@ -61,15 +61,16 @@ tune_st pid_tune_step (void) {
 	float32_t inp = d - pS->u; // релейный элемент
     if (inp >= 0) inp = d;
     else inp = -d;
-	float32_t u = pid_r(pS, inp);
+	float32_t u = pid_r(pS, inp * 0.1f);
     if (u > 1) u = 1;
     else if (u < 0) u = 0;
     Ufz = (1 - 1 / (1 + Tfz)) * Ufz // фазосдвигающий фильтр
     		+ (1 / (1 + Tfz)) * u;
-    pContrl(Ufz); // управл€ющее воздействие
-    inp = (1 - 1 / IF_TAU) * Inf // входной фильтр
+    pContrl(Ufz * 100); // управл€ющее воздействие
+    /*inp = (1 - 1 / IF_TAU) * Inf // входной фильтр
     		+ (1 / IF_TAU) * *pInp;
-    Inf = inp;
+    Inf = inp;*/
+    inp = *pInp;
     float32_t dy = d / 100;	// зона вычисления экстремумов
     if (inp - dy > Amax) {
         Amax = inp;
@@ -80,9 +81,9 @@ tune_st pid_tune_step (void) {
             Amin = inp;
             T_1 = i;
         }
-        if ((inp-dy > Amin) & (inp < d)) {
+        if ((inp - dy > Amin) && (inp < d)) {
             float32_t A = (Amax - Amin) / 2;
-            uint32_t T = (T_1 - T_0) * 2;
+            uint32_t T = abs(T_1 - T_0) * 2;
             float32_t b2_k = A / d;
             float32_t b3_k = (float32_t)T / pS->Ti;
             // проверка косв. усл. оптимальности
@@ -93,6 +94,8 @@ tune_st pid_tune_step (void) {
             	pS->Kp *= B2_CONST / b2_k;
             	pS->Ti *= b3_k / B3_CONST;
             	pS->Td = TD_ALPHA_MUL * pS->Ti;
+            	Amin = d;
+            	Amax = -d / 100;
             }
         }
     }
