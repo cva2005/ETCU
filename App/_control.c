@@ -58,6 +58,7 @@ bool pid_init = false;
 float32_t SpeedKp, SpeedTi;
 float32_t TorqueKp, TorqueTi;
 static unsigned StopCount = 0;
+static bool tune_start = false;
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -462,6 +463,7 @@ void read_devices (void) {
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
+				Speed_PID.u = 1500.0f;
 				Speed_PID.d = 500.0f;
 				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				state.step = ST_STOP;
@@ -1132,7 +1134,7 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 /*
  * Инициализация контуров регулирования
  */
-void init_PID (void) {
+void init_PID (void) { // ToDo:
 	pid_r_init(&Speed_PID);
 	Speed_PID.Kp = SpeedKp;
 	Speed_PID.Ti = SpeedTi;
@@ -1152,7 +1154,9 @@ void Speed_loop (void) {
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
-		if (pid_tune_step() == TUNE_PROCEED) {
+		tune_st tune = pid_tune_step();
+		if (tune == TUNE_PROCEED) {
+			tune_start = true;
 #ifdef MODEL_OBJ
 			if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
 				pi_out = (float32_t)EcuPedalPos() / 100.0;
@@ -1162,6 +1166,14 @@ void Speed_loop (void) {
 			Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 			return;
+		} else if (tune == TUNE_COMPLETE) {
+			if (tune_start) {
+				tune_start = false;
+				error.bit.pid_stune_ok = 1;
+				state.step = ST_STOP_TIME;
+			}
+		} else { // tune == TUNE_STOP_ERR
+			tune_start = false;
 		}
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		if (task < SPD_MIN) task = SPD_MIN;
@@ -1211,7 +1223,7 @@ void Speed_loop (void) {
 					+ (pi_out - SPD_MIN) * SPEED_MUL_EACC;
 			EcuPedControl(acc_out);
 		} else if (SpeedCntrl == ServoControl)
-			la10p_set_out(pi_out * SPEED_MUL_LA10P);
+			la10p_set_out(pi_out /** SPEED_MUL_LA10P*/);
 #else
 		ACCEL_SET(pi_out * SPEED_MUL);
 #endif

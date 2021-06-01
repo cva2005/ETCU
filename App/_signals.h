@@ -492,6 +492,9 @@ typedef struct
 			uint8_t servo_error:1; //ошибка сервопривода
 			uint8_t no_cruise:1; //ошибка управления по Круиз-Контроль
 			uint8_t servo_init_ok:1; //калибровка сервопривода завершена
+			uint8_t pid_self_tune:1; //Автонастройка ПИД регулятора контура скорости
+			uint8_t pid_stune_ok:1; //Автонастройка ПИД регулятора завершена
+			uint8_t err_stune:1; //Ошибка автонастройки ПИД регулятора
 		} bit;
 		uint32_t dword;
 	} error_t;

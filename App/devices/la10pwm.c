@@ -41,6 +41,7 @@ void la10p_step(void) {
 	if (timers_get_time_left(step_time) == 0) {
 		step_time = timers_get_finish_time(STEP_TIME);
 		if (state == LA10P_STOP_ERR) { // ошибка сервопривода
+			set_PWM_out(REVR_MAX);
 			return;
 		} else if (state == LA10P_NOT_INIT) {
 			state = LA10P_INIT_RUN;
@@ -157,7 +158,7 @@ float32_t la10p_get_pos(void) {
 
 /* set position of control */
 void la10p_set_out(float32_t pid_out) {
-	TaskVal = SensMin + pid_out * LA10P_MUL;
+	TaskVal = SensMin + pid_out * (SensMax - SensMin);
 	if (TaskVal > SensMax) TaskVal = SensMax;
 	if (TaskVal < SensMin) TaskVal = SensMin;
 }
