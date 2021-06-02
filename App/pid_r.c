@@ -4,7 +4,7 @@
 #include "pid_r.h"
 
 void pid_r_init (pid_r_instance *S) {
-	memset(S->i, 0, (ST_SIZE + 3) * sizeof(float32_t));
+	memset(S->i, 0, (ST_SIZE + 4) * sizeof(float32_t));
 }
 
 #define K_GAIN_INIT			0.001f
@@ -23,7 +23,7 @@ static pid_r_instance *pS;
 static float32_t d; // d=An/5 выход релейного элемента
 static float32_t Ufz; // выход фазосдвигающего фильтра
 static float32_t Inf; // выход входного фильтра
-static tune_st State = TUNE_COMPLETE;
+static tune_st State = TUNE_NOT_USED;
 static stime_t Etime;
 static pf_ctl pContrl;
 static float32_t *pInp;
@@ -52,11 +52,11 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	i = 0;
 }
 
-tune_st pid_tune_step (void) {
-	if (State != TUNE_PROCEED) goto ret_state;
+void pid_tune_step (void) {
+	if (State != TUNE_PROCEED) return;
 	if (timers_get_time_left(Etime) == 0) {
 		State = TUNE_STOP_ERR;
-		goto ret_state;
+		return;
 	}
 	i++; // счетчик временных интервалов
 	float32_t Tfz = pS->Ti * B1_CONST;
@@ -65,7 +65,7 @@ tune_st pid_tune_step (void) {
 	float32_t inp;
     if ((inpRef - Inf) >= 0) inp = d;
     else inp = -d;
-	float32_t u = pid_r(pS, inp/* * 0.1f*/);
+	float32_t u = pid_r(pS, inp * 0.1f);
     if (u > 1) u = 1;
     else if (u < 0) u = 0;
     Ufz = (1 - 1 / (1 + Tfz)) * Ufz // фазосдвигающий фильтр
@@ -91,6 +91,26 @@ tune_st pid_tune_step (void) {
             if ((fabs(b2_k - B2_CONST) < B_DIFF) &&
             		(fabs(b3_k - B3_CONST) < B_DIFF)) {
             	State = TUNE_COMPLETE;
+            	pS->Kp *= 0.03;
+            	//if (T < 900) pS->Kp *= 0.3;
+            	//if (T < 300) pS->Kp *= 0.1;
+            	/*===========================================================
+            	%   —ј–
+            	tmx=3000*n;    % длительность моделирования [сек]
+            	Xu=200; % значение уставки
+            	Xd=0;  %зона нечувствительности
+            	if T<900
+            	    K=K*0.3;
+            	end
+            	if T<300
+            	    K=K*0.1;
+            	end
+            	Xp=1/K;
+            	Xi=Xp*(Xu/An);  % - зона интегрирования
+            	Xk=[0 0 0 0 0 0 0]; % входное воздействие
+            	clear Y;
+            	clear uu;
+            	===========================================================*/
             } else { // вычисление параметров ѕ»ƒ следующей итерации
             	pS->Kp *= B2_CONST / b2_k;
             	pS->Ti *= b3_k / B3_CONST;
@@ -100,7 +120,9 @@ tune_st pid_tune_step (void) {
             }
         }
     }
-	ret_state:
+}
+
+tune_st pid_tune_state (void) {
 	return State;
 }
 

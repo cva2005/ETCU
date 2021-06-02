@@ -99,9 +99,12 @@ typedef struct {
 #ifdef MODEL_OBJ
 	#define SPEED_KP_EA			03.00f
 	#define SPEED_TI_EA			10.00f
-	#define SPEED_KP_SP			4.00f
-	#define SPEED_TI_SP			280.00f
-	#define SPEED_TD			35.00f
+//#define SPEED_KP_SP			0.0005f
+//#define SPEED_TI_SP			50.00f
+//#define SPEED_TD			12.50f
+	#define SPEED_KP_SP			0.0005f
+	#define SPEED_TI_SP			50.00f
+	#define SPEED_TD			12.50f
 	#define SPEED_DF_TAU		30.0f
 	#define TORQUE_KP			00.20f
 	#define TORQUE_TI			10.00f
@@ -142,7 +145,7 @@ typedef struct {
 //#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.2f
-#define SPEED_MAX			2000.0f
+#define SPEED_MAX			3000.0f
 #if UNI_CONTROL
 #define SPEED_FACT_EACC		0.04f
 #define SPEED_FACT_LA10P	45.0f

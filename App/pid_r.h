@@ -20,20 +20,23 @@ typedef struct {
 	float32_t u;			/* old output state */
 	float32_t d;			/* old derivative state */
 	float32_t Xd;			/* dead zone */
+	float32_t Xi;			/* integral zone */
 } pid_r_instance;
 
 typedef enum {
-	TUNE_COMPLETE = 0,
-	TUNE_PROCEED  = 1,
-	TUNE_STOP_ERR = 2
+	TUNE_NOT_USED = 0,
+	TUNE_STOP_ERR = 1,
+	TUNE_PROCEED  = 2,
+	TUNE_COMPLETE = 3,
 } tune_st;
 
 typedef void (*pf_ctl) (float32_t y);
 
 void pid_r_init (pid_r_instance *S);
 void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl);
-tune_st pid_tune_step (void);
+void pid_tune_step (void);
 float32_t pid_tune_out (void);
+tune_st pid_tune_state (void);
 
 static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     float32_t e[ST_SIZE + 1], D, Df, P, I, out;
@@ -56,8 +59,10 @@ static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     else Df = D;
     S->d = Df;
     P = in - e[1];
-    if (S->Ti > 0) I = (1.0 / S->Ti) * e[1];
-    else I = 0;
+    if (S->Ti > 0) {
+        //if (fabs(in) > S->Xi) I = 0;
+        /*else*/ I = (1.0 / S->Ti) * e[1];
+    } else I = 0;
     out = S->u + S->Kp * (P + I + Df);
     S->u = out;
 	memcpy(S->i, e, ST_SIZE * sizeof(float32_t));
