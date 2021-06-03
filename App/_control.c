@@ -55,7 +55,7 @@ bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
 bool pid_init = false;
-float32_t SpeedKp, SpeedTi;
+float32_t SpeedKp, SpeedTi, SpeedTd;
 float32_t TorqueKp, TorqueTi;
 static unsigned StopCount = 0;
 static bool tune_start = false;
@@ -463,6 +463,7 @@ void read_devices (void) {
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
+				pid_init = false;
 				state.step = ST_STOP;
 				cmd.opr = ST_STOP;
 				goto error_2;
@@ -635,23 +636,28 @@ void read_keys (void) {
 //----------------------------------------------------------------------------------------------
 void work_step (void) {
 	int32_t val;
-	if (st(SAVE_PID_VAL) || !pid_init) {
-		pid_init = true;
-		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
-		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
-		float32_t sp_Kp, sp_Ti;
-		if (SpeedCntrl == EaccControl) {
-			sp_Kp = SPEED_KP_EA;
-			sp_Ti = SPEED_TI_EA;
-		} else {
-			sp_Kp = SPEED_KP_SP/* * StSens_K*/;
-			sp_Ti = SPEED_TI_SP/* * StSens_K*/;
+	if (SpeedCntrl != TSC1Control) {
+		if (st(SAVE_PID_VAL) || !pid_init) {
+			pid_init = true;
+			set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
+			set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
+			float32_t sp_Kp, sp_Ti, sp_Td;
+			if (SpeedCntrl == EaccControl) {
+				sp_Kp = SPEED_KP_EA;
+				sp_Ti = SPEED_TI_EA;
+				sp_Td = SPEED_TD_EA;
+			} else {
+				sp_Kp = SPEED_KP_SP/* * StSens_K*/;
+				sp_Ti = SPEED_TI_SP/* * StSens_K*/;
+				sp_Td = SPEED_TD_SP;
+			}
+			SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
+			SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
+			SpeedTd = sp_Td;
+			TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
+			TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
+			init_PID(); // Регуляторы контуров управления
 		}
-		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
-		SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
-		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
-		TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
-		init_PID(); // Регуляторы контуров управления
 	}
 //--------------------ОБКАТКА----------------------------
 	if (cmd.opr != state.opr) {
@@ -1140,7 +1146,7 @@ void init_PID (void) { // ToDo:
 		pid_r_init(&Speed_PID);
 		Speed_PID.Kp = SpeedKp;
 		Speed_PID.Ti = SpeedTi;
-		Speed_PID.Td = SPEED_TD;
+		Speed_PID.Td = SpeedTd;
 		Speed_PID.Tf = SPEED_DF_TAU;
 		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 	}
@@ -1184,77 +1190,36 @@ void Speed_loop (void) {
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		if (task < SPD_MIN) task = SPD_MIN;
 		torq_corr = (Torque_Out / TORQUE_MAX);
-		float32_t acc_state;
-#if UNI_CONTROL
-		if (SpeedCntrl == TSC1Control) {
+		if (SpeedCntrl == TSC1Control)
 			EcuCruiseControl(task, torq_corr);
-		} else if (SpeedCntrl == EaccControl) {
-			acc_state = EcuPedalPos();
-			acc_state /= 1000.0;
-		} else if (SpeedCntrl == ServoControl) {
-			acc_state = la10p_get_pos();
-		}
-#else
-		acc_state = ACCEL_STATE;
-#endif
-		//Speed_PID.Xi = (1.0f / Speed_PID.Kp) * (task / SPEED_MAX);
-		//Speed_PID.Xi = (SPEED_MAX - task) * 2.0f;
 		task -= Speed_Out; // PID input Error
-		/*float32_t tmp = fabs(task);
-		Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-		if (SpeedCntrl == ServoControl)
-			Speed_PID.Kp *= exp(-tmp / SPEED_MAX);*/
-		/*if (((acc_state >= 95.0) && (task > 0)) ||
-				((acc_state <= 5.0) && (task < 0))) {
-			Speed_PID.Xi = 0;
-		}*/ /*else {
-			Speed_PID.Ki = SpeedKi * exp(-tmp / SPEED_MAX);
-			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-			if (SpeedCntrl == ServoControl)
-				Speed_PID.Kp *= exp(-tmp / SPEED_MAX);
-		}*/
-#if UNI_CONTROL
-		float32_t zone_dead = 0;
 		if (SpeedCntrl == EaccControl) {
-			zone_dead = ZONE_DEAD_EACC;
+			Speed_PID.Xd = ZONE_DEAD_EACC;
 		} else if (SpeedCntrl == ServoControl) {
-			zone_dead = ZONE_DEAD_LA10P / StSens_K;
+			Speed_PID.Xd = ZONE_DEAD_LA10P / StSens_K;
 		}
-		Speed_PID.Xd = zone_dead;
-#else
-		if (tmp < ZONE_DEAD_REF) task = 0;
-#endif
-		pi_out = pid_r(&Speed_PID, task);
-#if UNI_CONTROL
-		if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
-			float32_t acc_out = acc_state / 100.0
-					+ (pi_out - SPD_MIN) * SPEED_MUL_EACC;
-			EcuPedControl(acc_out);
-		} else if (SpeedCntrl == ServoControl)
-			la10p_set_out(pi_out /** SPEED_MUL_LA10P*/);
-#else
-		ACCEL_SET(pi_out * SPEED_MUL);
-#endif
+		if (SpeedCntrl != TSC1Control) {
+			pi_out = pid_r(&Speed_PID, task);
+			if (SpeedCntrl == EaccControl) EcuPedControl(pi_out);
+			else if (SpeedCntrl == ServoControl) la10p_set_out(pi_out);
+		}
 #ifdef MODEL_OBJ
-		torq_corr *= TORQUE_FACTOR;
-#if UNI_CONTROL
 		if (SpeedCntrl == TSC1Control) {
-			task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
-			if (!EcuCruiseActive()) task = SPD_ERR;
-			else if (task < SPD_MIN) task = SPD_MIN;
-			pi_out = task;
+			if (!EcuCruiseActive()) {
+				pi_out = SPD_ERR;
+			} else {
+				pi_out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+				if (pi_out < SPD_MIN) pi_out = SPD_MIN;
+			}
 		} else {
-			if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
-				pi_out += acc_state / 100.0;
+			torq_corr *= TORQUE_FACTOR;
+			if (SpeedCntrl == EaccControl) {
+				pi_out = EcuPedalPos() * SPEED_FACT_EACC;
 			} else { // SpeedCntrl == ServoControl
 				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
 			}
 			pi_out *= (1 - torq_corr);
 		}
-#else
-		pi_out = ACCEL_STATE * SPEED_FACT;
-		pi_out *= (1 - torq_corr);
-#endif
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}

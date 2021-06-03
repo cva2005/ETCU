@@ -90,10 +90,12 @@ void SaveEngineCtr1 (PGN_61444_t *data) {
 }
 
 void EcuPedControl (float32_t pid_out) {
+	if (pid_out > 1.0) pid_out = 1.0;
+	if (pid_out < 0.0) pid_out = 0.0;
+	PedalPos = (int32_t)(pid_out * 100000.0);
+	pid_out *= DAC_OUT_MAX - DAC_OUT_MIN;
 	pid_out += DAC_OUT_MIN;
-	if (pid_out > DAC_OUT_MAX) pid_out = DAC_OUT_MAX;
 	mu6u_set_out(pid_out); // уст. выходы DAC0, DAC1
-	PedalPos = (int32_t)pid_out * (100000 / DAC_OUT_FULL);
 }
 
 uint8_t EcuPedError (void) {
