@@ -4,7 +4,7 @@
 #include "pid_r.h"
 
 void pid_r_init (pid_r_instance *S) {
-	memset(S->i, 0, (ST_SIZE + 4) * sizeof(float32_t));
+	memset(S->i, 0, (ST_SIZE + 2) * sizeof(float32_t));
 }
 
 #define K_GAIN_INIT			0.001f
@@ -23,6 +23,11 @@ static pid_r_instance *pS;
 static float32_t d; // d=An/5 выход релейного элемента
 static float32_t Ufz; // выход фазосдвигающего фильтра
 static float32_t Inf; // выход входного фильтра
+static float32_t Kp;
+static float32_t Ti;
+static float32_t Td;
+static float32_t Xi;
+static float32_t Xd;
 static tune_st State = TUNE_NOT_USED;
 static stime_t Etime;
 static pf_ctl pContrl;
@@ -31,6 +36,7 @@ static float32_t Amax;
 static float32_t Amin;
 static float32_t inpRef;
 static uint32_t T_1, T_0, i;
+static float32_t Ufz; // выход фазосдвигающего фильтра
 
 void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	pS = s;
@@ -39,12 +45,15 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	pContrl = contrl;
 	d = s->d;
 	inpRef = s->u;
+	Kp = s->Xi;
+	Ti = s->Xi;
+	Td = s->Xi;
+	Xi = s->Xi;
+	Xd = s->Xd;
+	s->Xi = 0;
+	s->Xd = 0;
 	Ufz = 0;
 	pid_r_init(s);
-	//s->Kp = K_GAIN_INIT;
-	//s->Ti = TI_INIT_VAL;
-	//s->Td = TI_INIT_VAL * TD_ALPHA_MUL;
-	//s->Tf = DF_TAU;
 	State = TUNE_PROCEED;
 	Etime = timers_get_finish_time(FULL_TIME);
 	Amin = inpRef + d;
@@ -56,6 +65,13 @@ void pid_tune_step (void) {
 	if (State != TUNE_PROCEED) return;
 	if (timers_get_time_left(Etime) == 0) {
 		State = TUNE_STOP_ERR;
+		pS->Kp = Kp;
+		pS->Ti = Ti;
+		pS->Td = Td;
+tune_end:
+    	pS->Xi = Xi;
+    	pS->Xd = Xd;
+    	pid_r_init(pS);
 		return;
 	}
 	i++; // счетчик временных интервалов
@@ -91,26 +107,12 @@ void pid_tune_step (void) {
             if ((fabs(b2_k - B2_CONST) < B_DIFF) &&
             		(fabs(b3_k - B3_CONST) < B_DIFF)) {
             	State = TUNE_COMPLETE;
-            	pS->Kp *= 0.03;
+            	pS->Kp *= 0.04;
+            	pS->Td = pS->Ti;
+            	pS->Ti *= 10.0;
+            	goto tune_end;
             	//if (T < 900) pS->Kp *= 0.3;
             	//if (T < 300) pS->Kp *= 0.1;
-            	/*===========================================================
-            	%   —ј–
-            	tmx=3000*n;    % длительность моделирования [сек]
-            	Xu=200; % значение уставки
-            	Xd=0;  %зона нечувствительности
-            	if T<900
-            	    K=K*0.3;
-            	end
-            	if T<300
-            	    K=K*0.1;
-            	end
-            	Xp=1/K;
-            	Xi=Xp*(Xu/An);  % - зона интегрирования
-            	Xk=[0 0 0 0 0 0 0]; % входное воздействие
-            	clear Y;
-            	clear uu;
-            	===========================================================*/
             } else { // вычисление параметров ѕ»ƒ следующей итерации
             	pS->Kp *= B2_CONST / b2_k;
             	pS->Ti *= b3_k / B3_CONST;
