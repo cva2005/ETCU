@@ -498,7 +498,7 @@ void read_devices (void) {
 			if (Ready == false) {
 				Ready = true;
 				//Speed_PID.u = 1500.0f;
-				//Speed_PID.d = 500.0f;
+				//Speed_PID.d = 500.0f; // ToDo:
 				//pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				error.bit.no_eacc = 0;
 				error.bit.servo_not_init = 0;
@@ -1142,6 +1142,7 @@ void init_PID (void) { // ToDo:
 		Speed_PID.Ti = SpeedTi;
 		Speed_PID.Td = SPEED_TD;
 		Speed_PID.Tf = SPEED_DF_TAU;
+		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 	}
 	pid_r_init(&Torque_PID);
 	Torque_PID.Kp = TorqueKp;

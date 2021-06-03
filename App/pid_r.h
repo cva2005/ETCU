@@ -60,8 +60,13 @@ static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     S->d = Df;
     P = in - e[1];
     if (S->Ti > 0) {
-        //if (fabs(in) > S->Xi) I = 0;
-        /*else*/ I = (1.0 / S->Ti) * e[1];
+    	if (S->Xi > 0) {
+    		if (fabs(in) > S->Xi) I = 0;
+    		else goto integer;
+    	} else {
+    		integer:
+    		I = (1.0 / S->Ti) * e[1];
+    	}
     } else I = 0;
     out = S->u + S->Kp * (P + I + Df);
     S->u = out;
