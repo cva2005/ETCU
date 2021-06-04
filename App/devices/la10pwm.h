@@ -53,7 +53,7 @@ typedef enum {
 #define CURR_VIEW(x)
 #endif
 #define CURR_SENS_mA		(CURR_SENS_mV / (SENS_I_Om * SENS_I_Gain))
-#define SENS_I_MAX			100.0f
+#define SENS_I_MAX			250.0f
 
 #define pwm_tim				htim1
 #define TIM_INST			TIM1

@@ -439,7 +439,6 @@ void read_devices (void) {
 				goto select_1;
 			} else if (EcuCruiseError()) {
 				SpeedCntrl = EaccControl;
-				//pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
 				goto error_1;
 			}
 		} else {
@@ -460,6 +459,9 @@ void read_devices (void) {
 		if (!CntrlDevSel) { // not selected
 			if (EcuPedActive()) {
 				CntrlDevSel = true;
+				Speed_PID.u = 1000.0f;
+				Speed_PID.d = 100.0f; // ToDo:
+				pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
@@ -498,7 +500,7 @@ void read_devices (void) {
 		} else if (srv_st == LA10P_READY) {
 			if (Ready == false) {
 				Ready = true;
-				Speed_PID.u = 1500.0f;
+				Speed_PID.u = 2000.0f;
 				Speed_PID.d = 500.0f; // ToDo:
 				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				error.bit.no_eacc = 0;
@@ -1148,13 +1150,14 @@ void init_PID (void) { // ToDo:
 		Speed_PID.Ti = SpeedTi;
 		Speed_PID.Td = SpeedTd;
 		Speed_PID.Tf = SPEED_DF_TAU;
-		Speed_PID.Xi = SPEED_MAX / XI_DIV;
+		Speed_PID.Xi = /*SPEED_MAX / XI_DIV*/0.0f;
 	}
 	pid_r_init(&Torque_PID);
 	Torque_PID.Kp = TorqueKp;
 	Torque_PID.Ti = TorqueTi;
 	Torque_PID.Td = TORQUE_TD;
 	Torque_PID.Tf = TORQUE_DF_TAU;
+	Torque_PID.Xi = 0.0f;
 }
 
 /*
@@ -1169,19 +1172,21 @@ void Speed_loop (void) {
 			tune_start = true;
 			pid_tune_step();
 #ifdef MODEL_OBJ
-			if (SpeedCntrl == EaccControl) { // ToDo: накопление убрать
-				pi_out = (float32_t)EcuPedalPos() / 100.0;
+			if (SpeedCntrl == EaccControl) {
+				pi_out = (float32_t)EcuPedalPos();
 			} else { // SpeedCntrl == ServoControl
 				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
 			}
 			Speed_Out = get_obj(&FrequeObj, pi_out);
+			if (Speed_Out < SPD_MIN) Speed_Out = SPD_MIN;
 #endif // MODEL_OBJ
 			return;
 		} else if (tune == TUNE_COMPLETE) {
 			if (tune_start) {
 				tune_start = false;
 				error.bit.pid_stune_ok = 1;
-				state.step = ST_STOP_TIME;
+				cmd.opr = ST_STOP;
+				//state.step = ST_STOP_TIME;
 				return;
 			}
 		} else { // tune == TUNE_STOP_ERR
@@ -1221,6 +1226,7 @@ void Speed_loop (void) {
 			pi_out *= (1 - torq_corr);
 		}
 		Speed_Out = get_obj(&FrequeObj, pi_out);
+		if (Speed_Out < SPD_MIN) Speed_Out = SPD_MIN;
 #endif // MODEL_OBJ
 	}
 }
