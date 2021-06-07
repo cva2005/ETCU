@@ -24,10 +24,11 @@ typedef struct {
 } pid_r_instance;
 
 typedef enum {
-	TUNE_NOT_USED = 0,
-	TUNE_STOP_ERR = 1,
-	TUNE_PROCEED  = 2,
-	TUNE_COMPLETE = 3,
+	TUNE_NOT_USED 	= 0,
+	TUNE_NEW_START	= 1,
+	TUNE_PROCEED  	= 2,
+	TUNE_COMPLETE 	= 3,
+	TUNE_STOP_ERR 	= 4,
 } tune_st;
 
 typedef void (*pf_ctl) (float32_t y);

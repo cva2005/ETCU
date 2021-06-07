@@ -37,6 +37,7 @@ static float32_t Amin;
 static float32_t inpRef;
 static uint32_t T_1, T_0, i;
 static float32_t Ufz; // выход фазосдвигающего фильтра
+static float32_t dy; // зона вычисления экстремумов
 
 void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	pS = s;
@@ -44,6 +45,7 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	Inf = *pi;
 	pContrl = contrl;
 	d = s->d;
+	dy = d / 50.0; // зона вычисления экстремумов
 	inpRef = s->u;
 	Kp = s->Xi;
 	Ti = s->Xi;
@@ -54,14 +56,17 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	s->Xd = 0;
 	Ufz = 0;
 	pid_r_init(s);
-	State = TUNE_PROCEED;
-	Etime = timers_get_finish_time(FULL_TIME);
+	State = TUNE_NEW_START;
 	Amin = +inpRef + d;
 	Amax = -inpRef - d;
 	i = 0;
 }
 
 void pid_tune_step (void) {
+	if (State == TUNE_NEW_START) {
+		Etime = timers_get_finish_time(FULL_TIME);
+		State = TUNE_PROCEED;
+	}
 	if (State != TUNE_PROCEED) return;
 	if (timers_get_time_left(Etime) == 0) {
 		State = TUNE_STOP_ERR;
@@ -88,8 +93,8 @@ tune_end:
     		+ (1 / (1 + Tfz)) * u;
     pContrl(Ufz); // управл€ющее воздействие
     inp = Inf;
-    float32_t dy = d / 50.0;	// зона вычисления экстремумов
-	//#define dy	50.0	// зона вычисления экстремумов
+    //float32_t dy = d / 12.0; // зона вычисления экстремумов
+	//#define dy	40.0	// зона вычисления экстремумов
     if (inp - dy > Amax) {
         Amax = inp;
         T_0 = i;
@@ -101,6 +106,7 @@ tune_end:
         }
         if ((inp - dy > Amin) && (inp < inpRef + d)) {
             float32_t A = (Amax - Amin) / 2;
+        	dy = A / 50.0; // зона вычисления экстремумов
             uint32_t T = abs(T_1 - T_0) * 2;
             float32_t b2_k = A / d;
             float32_t b3_k = (float32_t)T / pS->Ti;
@@ -110,14 +116,11 @@ tune_end:
             if ((fabs(b2_k - B2_CONST) < B_DIFF) &&
             		(fabs(b3_k - B3_CONST) < B_DIFF)) {
             	State = TUNE_COMPLETE;
-            	//if (T < 900) pS->Kp *= 0.3;
+            	//if (T < 900) pS->Kp *= 0.35;
+               	//pS->Ti *= 0.35;
+               	//pS->Td *= 2.0;
             	//if (T < 300) pS->Kp *= 0.1;
-            	//pS->Kp *= 0.014;
-            	//pS->Ti *= 0.2;
-            	//pS->Td *= 0.1;
             	goto tune_end;
-            	//if (T < 900) pS->Kp *= 0.3;
-            	//if (T < 300) pS->Kp *= 0.1;
             } else { // вычисление параметров ѕ»ƒ следующей итерации
             	pS->Kp *= B2_CONST / b2_k;
             	pS->Ti *= b3_k / B3_CONST;

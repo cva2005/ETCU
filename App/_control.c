@@ -501,7 +501,7 @@ void read_devices (void) {
 			if (Ready == false) {
 				Ready = true;
 				Speed_PID.u = 2000.0f;
-				Speed_PID.d = 500.0f; // ToDo:
+				Speed_PID.d = 300.0f; // ToDo:
 				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
 				error.bit.no_eacc = 0;
 				error.bit.servo_not_init = 0;
@@ -710,6 +710,7 @@ void work_step (void) {
 #endif
 							set(DO_STARTER, ON);
 #ifdef MODEL_OBJ
+							pid_r_init(&Speed_PID);
 							init_obj(); // нач. установка ОР1, ОР2
 							state.step = ST_SET_ROTATION;
 							time.alg = timers_get_finish_time(4000);
@@ -784,6 +785,7 @@ void work_step (void) {
 #endif // #if UNI_CONTROL
 			if (state.step == ST_WAIT_ENGINE_START) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+					pid_r_init(&Speed_PID);
 					engine_start:
 #if UNI_CONTROL
 					if (SpeedCntrl != ServoControl) {
@@ -1142,15 +1144,14 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
 /*
  * Инициализация контуров регулирования
  */
-void init_PID (void) { // ToDo:
-	tune_st speed_tune = pid_tune_state();
-	if (speed_tune < TUNE_PROCEED) {
+void init_PID (void) {
+	if (pid_tune_state() == TUNE_NOT_USED) {
 		pid_r_init(&Speed_PID);
 		Speed_PID.Kp = SpeedKp;
 		Speed_PID.Ti = SpeedTi;
 		Speed_PID.Td = SpeedTd;
 		Speed_PID.Tf = SPEED_DF_TAU;
-		Speed_PID.Xi = /*SPEED_MAX / XI_DIV*/0.0f;
+		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 	}
 	pid_r_init(&Torque_PID);
 	Torque_PID.Kp = TorqueKp;
@@ -1168,8 +1169,11 @@ void Speed_loop (void) {
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		tune_st tune = pid_tune_state();
-		if (tune == TUNE_PROCEED) {
+		if (tune == TUNE_NEW_START) {
 			tune_start = true;
+			goto tune_step;
+		} else if (tune == TUNE_PROCEED) {
+			tune_step:
 			pid_tune_step();
 #ifdef MODEL_OBJ
 			if (SpeedCntrl == EaccControl) {

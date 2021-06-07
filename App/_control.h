@@ -100,7 +100,8 @@ typedef struct {
 	#define SPEED_KP_EA			0.01f
 	#define SPEED_TI_EA			100.00f
 	#define SPEED_TD_EA			10.00f
-#define SPEED_KP_SP			0.01f
+//#define SPEED_KP_SP			0.01f
+#define SPEED_KP_SP			0.0001f
 #define SPEED_TI_SP			200.00f
 #define SPEED_TD_SP			50.50f
 	//#define SPEED_KP_SP			0.0012f
@@ -143,7 +144,7 @@ typedef struct {
 	#error "Accelerator driver not defined"
 #endif
 
-#define XI_DIV				3.0f
+#define XI_DIV				2.0f
 //#define SPEED_LOOP_TIME		100 // дискретизация по времени контура регулирования оборотов, мс
 #define TORQUE_MAX			400.0f // Нм
 #define TORQUE_FACTOR		0.2f
