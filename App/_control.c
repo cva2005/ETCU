@@ -501,7 +501,7 @@ void read_devices (void) {
 		} else if (srv_st == LA10P_READY) {
 			if (Ready == false) {
 				Ready = true;
-				Speed_PID.u = 1100.0f;
+				Speed_PID.u = 1500.0f;
 				Speed_PID.d = 300.0f; // ToDo:
 				pid_tune_new(&Speed_PID, &Speed_Out,
 						la10p_set_out, ZIEGLER_NICHOLS);

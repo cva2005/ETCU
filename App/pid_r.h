@@ -9,20 +9,20 @@ extern "C"
 {
 #endif
 
-#define TD_ALPHA_MUL		0.250f
-#define IF_TAU				10.00f // пост. времени входного фильтра
-#define B1_CONST			0.380f // косвенные условия оптимальности
-#define B2_CONST			1.000f
-#define B3_CONST			3.700f
-#define B_DIFF				0.500f // допуск на косвенные условия оптимальности
-#define STEP_TIME			100    // врем€ шага опроса (дискретизации), мс
-#define FULL_TIME			300000 // суммарное врем€ самонастройки, мс
-#define END_TIME			15000  // врем€ поко€ при завершении самонастройки, мс
+#define TD_ALPHA_MUL	0.250f
+#define IF_TAU			10.00f // пост. времени входного фильтра
+#define B1_CONST		0.380f // косвенные условия оптимальности
+#define B2_CONST		1.000f
+#define B3_CONST		3.700f
+#define B_DIFF			0.500f // допуск на косвенные условия оптимальности
+#define STEP_TIME		100    // врем€ шага опроса (дискретизации), мс
+#define FULL_TIME		300000 // суммарное врем€ самонастройки, мс
+#define END_TIME		15000  // врем€ поко€ при завершении самонастройки, мс
 
 #define ST_SIZE			2u 		/* input array size */
 #define PRD_STABLE		1
-#define SPEED_KP_HI		0.01f
-#define SPEED_KP_LO		0.00001f
+#define SPEED_KP_HI		0.02f
+#define SPEED_KP_LO		0.0001f
 
 /*
  * VARYING RESPONSE - TUNING CONSTANTS

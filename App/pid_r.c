@@ -124,10 +124,10 @@ tune_end:
             	p++; // счетчик периодов
             	if (p > PRD_STABLE) {
     				p = 0;
-    				pS->Kp *= 0.75;
+    				pS->Kp *= 0.9;
                 	Amin = inpRef + inpRef / 2;
                 	Amax = inpRef - inpRef / 2;
-    				dy = A / 15.0; // зона вычисления экстремумов
+    				dy = A / 12.0; // зона вычисления экстремумов
     				Stime = timers_get_finish_time(END_TIME);
     			}
             }
