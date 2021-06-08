@@ -9,7 +9,37 @@ extern "C"
 {
 #endif
 
-#define ST_SIZE		2u 		/* input array size */
+#define TD_ALPHA_MUL		0.250f
+#define IF_TAU				10.00f // пост. времени входного фильтра
+#define B1_CONST			0.380f // косвенные условия оптимальности
+#define B2_CONST			1.000f
+#define B3_CONST			3.700f
+#define B_DIFF				0.500f // допуск на косвенные условия оптимальности
+#define STEP_TIME			100    // врем€ шага опроса (дискретизации), мс
+#define FULL_TIME			300000 // суммарное врем€ самонастройки, мс
+#define END_TIME			15000  // врем€ поко€ при завершении самонастройки, мс
+
+#define ST_SIZE			2u 		/* input array size */
+#define PRD_STABLE		1
+#define SPEED_KP_HI		0.01f
+#define SPEED_KP_LO		0.00001f
+
+/*
+ * VARYING RESPONSE - TUNING CONSTANTS
+ * --------------------------------------------------------------------------
+ * | CONTROLLER 		| PROPORTIONAL	| INTEGRAL TIME | DERIVATIVE TIME 	|
+ * | 			 		| 	BAND Pb		| CONSTANT TI	| 	CONSTANT TD	  	|
+ * --------------------------------------------------------------------------
+ * | UNDER DAMPED		|		1.0 P	| 		0.5 T 	| 		0.125 T		|
+ * --------------------------------------------------------------------------
+ * | CRITICALLY DAMPED	| 		1.5 P	| 		0.5 T 	| 		0.125 T		|
+ * --------------------------------------------------------------------------
+ * | OVER DAMPED		| 		2.0	P	| 		1.5 T 	| 		0.167 T		|
+ * --------------------------------------------------------------------------
+  */
+#define CONST_KP	1.0f
+#define CONST_TI	0.5f
+#define CONST_TD	0.125f
 
 typedef struct {
 	float32_t Kp;			/* gain factor */
@@ -31,13 +61,19 @@ typedef enum {
 	TUNE_STOP_ERR 	= 4,
 } tune_st;
 
+typedef enum {
+	ZIEGLER_NICHOLS	= 0,
+	MPEI_ENERGY		= 1,
+} tune_t;
+
 typedef void (*pf_ctl) (float32_t y);
 
 void pid_r_init (pid_r_instance *S);
-void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl);
 void pid_tune_step (void);
 float32_t pid_tune_out (void);
 tune_st pid_tune_state (void);
+void pid_tune_new (pid_r_instance *s, float32_t *pi,
+		pf_ctl contrl, tune_t t_type);
 
 static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     float32_t e[ST_SIZE + 1], D, Df, P, I, out;

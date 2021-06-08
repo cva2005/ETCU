@@ -461,7 +461,8 @@ void read_devices (void) {
 				CntrlDevSel = true;
 				Speed_PID.u = 1000.0f;
 				Speed_PID.d = 100.0f; // ToDo:
-				pid_tune_new(&Speed_PID, &Speed_Out, EcuPedControl);
+				pid_tune_new(&Speed_PID, &Speed_Out,
+						EcuPedControl, MPEI_ENERGY);
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
@@ -500,9 +501,10 @@ void read_devices (void) {
 		} else if (srv_st == LA10P_READY) {
 			if (Ready == false) {
 				Ready = true;
-				Speed_PID.u = 2000.0f;
+				Speed_PID.u = 1100.0f;
 				Speed_PID.d = 300.0f; // ToDo:
-				pid_tune_new(&Speed_PID, &Speed_Out, la10p_set_out);
+				pid_tune_new(&Speed_PID, &Speed_Out,
+						la10p_set_out, ZIEGLER_NICHOLS);
 				error.bit.no_eacc = 0;
 				error.bit.servo_not_init = 0;
 				//error.bit.servo_init_ok = 1;
