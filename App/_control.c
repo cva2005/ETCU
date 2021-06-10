@@ -42,11 +42,12 @@ void init_PID (void);
 void Speed_loop (void);
 void Torque_loop (torq_val_t val);
 #ifdef MODEL_OBJ
-uint32_t ServoPos;
-obj_t FrequeObj;
-obj_t TorqueObj;
-float32_t get_obj (obj_t * obj, float32_t inp);
-void init_obj (void);
+	uint32_t ServoPos;
+	obj_t FrequeObj;
+	obj_t TorqueObj;
+	float32_t get_obj (obj_t * obj, float32_t inp);
+	void init_obj (void);
+	uint32_t StCnt;
 #endif
 uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 #define PID_RESET				1
@@ -461,8 +462,10 @@ void read_devices (void) {
 				CntrlDevSel = true;
 				Speed_PID.u = 1000.0f;
 				Speed_PID.d = 100.0f; // ToDo:
+				Speed_PID.Xi = 200.0;
+				Speed_PID.Tf = 0.01;
 				pid_tune_new(&Speed_PID, &Speed_Out,
-						EcuPedControl, MPEI_ENERGY);
+						EcuPedControl, ZIEGLER_NICHOLS);
 				goto select_2;
 			} else if (EcuPedError()) {
 				SpeedCntrl = ServoControl;
@@ -501,10 +504,11 @@ void read_devices (void) {
 		} else if (srv_st == LA10P_READY) {
 			if (Ready == false) {
 				Ready = true;
-				Speed_PID.u = 1500.0f;
-				Speed_PID.d = 300.0f; // ToDo:
+				Speed_PID.u = 1200.0f;
+				Speed_PID.Xi = 900.0;
+				Speed_PID.Tf = 1.0;
 				pid_tune_new(&Speed_PID, &Speed_Out,
-						la10p_set_out, ZIEGLER_NICHOLS);
+						la10p_set_out,	ZIEGLER_NICHOLS);
 				error.bit.no_eacc = 0;
 				error.bit.servo_not_init = 0;
 				//error.bit.servo_init_ok = 1;
@@ -691,7 +695,6 @@ void work_step (void) {
 					state.step = ST_WAIT_ENGINE_START;
 					time.alg = timers_get_finish_time(15000);
 #ifdef MODEL_OBJ
-					init_obj(); // нач. установка ОР1, ОР2
 					Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
 #endif
 				}
@@ -706,14 +709,10 @@ void work_step (void) {
 					if (timers_get_time_left(time.alg) == 0) {
 #ifndef NO_BATTERY
 						if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
-#ifndef SERVO_CONTROL
 							Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
-#endif
 #endif
 							set(DO_STARTER, ON);
 #ifdef MODEL_OBJ
-							pid_r_init(&Speed_PID);
-							init_obj(); // нач. установка ОР1, ОР2
 							state.step = ST_SET_ROTATION;
 							time.alg = timers_get_finish_time(4000);
 							cntrl_M_time = timers_get_finish_time(0);
@@ -787,8 +786,8 @@ void work_step (void) {
 #endif // #if UNI_CONTROL
 			if (state.step == ST_WAIT_ENGINE_START) {
 				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
-					pid_r_init(&Speed_PID);
 					engine_start:
+					pid_r_init(&Speed_PID);
 #if UNI_CONTROL
 					if (SpeedCntrl != ServoControl) {
 						set(START_RELAY, OFF);
@@ -807,6 +806,8 @@ void work_step (void) {
 				} else {
 					if (timers_get_time_left(time.alg) == 0) {
 #ifdef MODEL_OBJ
+						StCnt = 0;
+						init_obj(); // нач. установка ОР1, ОР2
 						goto engine_start;
 #else
 						set(START_RELAY, OFF);
@@ -1118,8 +1119,8 @@ void work_stop (void) {
  */
 void init_obj (void) {
 	TorqueObj.st = FrequeObj.st = HAL_GetTick();
-	FrequeObj.out = (float32_t)st(CFG_MIN_ROTATE) / 1000.0; // пред. знач-е вых. парам.
-	FrequeObj.tau = 3000.0; // постоянная времени апериодического звена, ms
+	FrequeObj.out = SPD_MIN; // пред. знач-е вых. парам.
+	FrequeObj.tau = 1000.0; // постоянная времени апериодического звена, ms
 	TorqueObj.out = 0.0; // пред. знач-е вых. парам.
 	TorqueObj.tau = 2000.0; // постоянная времени апериодического звена, ms
 }
@@ -1171,6 +1172,7 @@ void Speed_loop (void) {
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		tune_st tune = pid_tune_state();
+		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		if (tune == TUNE_NEW_START) {
 			tune_start = true;
 			goto tune_step;
@@ -1179,7 +1181,7 @@ void Speed_loop (void) {
 			pid_tune_step();
 #ifdef MODEL_OBJ
 			if (SpeedCntrl == EaccControl) {
-				pi_out = (float32_t)EcuPedalPos();
+				pi_out = (float32_t)EcuPedalPos() * SPEED_FACT_EACC;
 			} else { // SpeedCntrl == ServoControl
 				pi_out = la10p_get_pos() * SPEED_FACT_LA10P;
 			}
@@ -1189,20 +1191,24 @@ void Speed_loop (void) {
 			return;
 		} else if (tune == TUNE_COMPLETE) {
 			if (tune_start) {
-				tune_start = false;
 				error.bit.pid_stune_ok = 1;
+				ret_tune:
+				tune_start = false;
 				cmd.opr = ST_STOP;
-				//state.step = ST_STOP_TIME;
 				return;
 			}
 		} else { // tune == TUNE_STOP_ERR
-			tune_start = false;
+			if (tune_start) goto ret_tune;
 		}
-		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
-		if (task < SPD_MIN) task = SPD_MIN;
+		if (task < SPD_MIN) {
+			task = SPD_MIN;
+		}
 		torq_corr = (Torque_Out / TORQUE_MAX);
 		if (SpeedCntrl == TSC1Control)
 			EcuCruiseControl(task, torq_corr);
+#ifdef MODEL_OBJ
+		if (Speed_Out < SPD_MIN) Speed_Out = SPD_MIN;
+#endif // MODEL_OBJ
 		task -= Speed_Out; // PID input Error
 		if (SpeedCntrl == EaccControl) {
 			Speed_PID.Xd = ZONE_DEAD_EACC;
@@ -1210,6 +1216,13 @@ void Speed_loop (void) {
 			Speed_PID.Xd = ZONE_DEAD_LA10P / StSens_K;
 		}
 		if (SpeedCntrl != TSC1Control) {
+#ifdef MODEL_OBJ
+			if (StCnt < STABLE_DEL) {
+				StCnt++;
+				task = 0;
+				FrequeObj.out = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+			}
+#endif // MODEL_OBJ
 			pi_out = pid_r(&Speed_PID, task);
 			if (SpeedCntrl == EaccControl) EcuPedControl(pi_out);
 			else if (SpeedCntrl == ServoControl) la10p_set_out(pi_out);
@@ -1231,8 +1244,9 @@ void Speed_loop (void) {
 			}
 			pi_out *= (1 - torq_corr);
 		}
+		speed_out:
+		if (pi_out < SPD_MIN) pi_out = SPD_MIN;
 		Speed_Out = get_obj(&FrequeObj, pi_out);
-		if (Speed_Out < SPD_MIN) Speed_Out = SPD_MIN;
 #endif // MODEL_OBJ
 	}
 }

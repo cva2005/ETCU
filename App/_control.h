@@ -97,10 +97,11 @@ typedef struct {
 #endif
 
 #ifdef MODEL_OBJ
-	#define SPEED_KP_EA			0.01f
+	#define SPEED_KP_EA			20.00f
 	#define SPEED_TI_EA			100.00f
 	#define SPEED_TD_EA			10.00f
-	#define SPEED_KP_SP			0.0012f
+	//#define SPEED_KP_SP			0.0012f
+	#define SPEED_KP_SP			0.02f
 	#define SPEED_TI_SP			100.00f
 	#define SPEED_TD_SP			10.00f
 	#define SPEED_DF_TAU		30.0f
@@ -146,6 +147,7 @@ typedef struct {
 #define TORQUE_FACTOR		0.2f
 #define SPEED_MAX			3000.0f
 #if UNI_CONTROL
+#define STABLE_DEL			5U
 #define SPEED_FACT_EACC		0.04f
 #define SPEED_FACT_LA10P	45.0f
 #else

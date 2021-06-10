@@ -9,20 +9,18 @@ extern "C"
 {
 #endif
 
+#define ST_SIZE			2U 		 // input array size
+#define PRD_STABLE		2U
+#define SPEED_KP_HI		2.0f
+#define SPEED_KP_LO		0.0001f
 #define TD_ALPHA_MUL	0.250f
-#define IF_TAU			10.00f // пост. времени входного фильтра
-#define B1_CONST		0.380f // косвенные условия оптимальности
+#define IF_TAU			10.00f  // пост. времени входного фильтра
+#define B1_CONST		0.380f  // косвенные условия оптимальности
 #define B2_CONST		1.000f
 #define B3_CONST		3.700f
-#define B_DIFF			0.500f // допуск на косвенные условия оптимальности
-#define STEP_TIME		100    // врем€ шага опроса (дискретизации), мс
-#define FULL_TIME		300000 // суммарное врем€ самонастройки, мс
-#define END_TIME		15000  // врем€ поко€ при завершении самонастройки, мс
-
-#define ST_SIZE			2u 		/* input array size */
-#define PRD_STABLE		1
-#define SPEED_KP_HI		0.02f
-#define SPEED_KP_LO		0.0001f
+#define B_DIFF			0.500f  // допуск на косвенные условия оптимальности
+#define FULL_TIME		300000U // суммарное врем€ самонастройки, мс
+#define T_BREAK			5000U
 
 /*
  * VARYING RESPONSE - TUNING CONSTANTS
@@ -73,7 +71,7 @@ void pid_tune_step (void);
 float32_t pid_tune_out (void);
 tune_st pid_tune_state (void);
 void pid_tune_new (pid_r_instance *s, float32_t *pi,
-		pf_ctl contrl, tune_t t_type);
+					pf_ctl contrl, tune_t t_type);
 
 static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     float32_t e[ST_SIZE + 1], D, Df, P, I, out;

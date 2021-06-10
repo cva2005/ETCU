@@ -3,10 +3,6 @@
 #include "timers.h"
 #include "pid_r.h"
 
-void pid_r_init (pid_r_instance *S) {
-	memset(S->i, 0, (ST_SIZE + 2) * sizeof(float32_t));
-}
-
 static pid_r_instance *pS;
 static float32_t d; // d=An/5 выход релейного элемента
 static float32_t Ufz; // выход фазосдвигающего фильтра
@@ -18,25 +14,31 @@ static float32_t Xi;
 static float32_t Xd;
 static tune_st State = TUNE_NOT_USED;
 static stime_t Etime;
-static stime_t Stime;
+static stime_t BrTime;
 static pf_ctl pContrl;
 static float32_t *pInp;
 static float32_t Amax;
 static float32_t Amin;
-static float32_t inpRef;
-static uint32_t T, T_1, T_0, i, p;
+static float32_t inpRef, Kmul;
+static uint32_t T, T_1, T_0, i;
 static float32_t Ufz; // выход фазосдвигающего фильтра
 static float32_t dy; // зона вычисления экстремумов
 static tune_t Ttype;
+static bool compl;
+
+void pid_r_init (pid_r_instance *S) {
+	memset(S->i, 0, (ST_SIZE + 2) * sizeof(float32_t));
+}
 
 void pid_tune_new (pid_r_instance *s, float32_t *pi,
-		pf_ctl contrl, tune_t t_type) {
+					pf_ctl contrl, tune_t t_type) {
 	Ttype = t_type;
 	pS = s;
 	pInp = pi;
 	Inf = *pi;
 	pContrl = contrl;
 	inpRef = s->u;
+	Kmul = s->Tf;
 	Kp = s->Kp;
 	Ti = s->Ti;
 	Td = s->Td;
@@ -44,12 +46,12 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi,
 	Xd = s->Xd;
 	s->Xi = 0;
 	s->Xd = 0;
+	s->Tf = 0;
 	Ufz = 0;
 	if (t_type == ZIEGLER_NICHOLS) {
-		s->Kp = SPEED_KP_HI;
 		s->Ti = 0;
 		s->Td = 0;
-		dy = 40.0; // зона вычисления экстремумов
+		dy = 10.0; // зона вычисления экстремумов
 		d = 0;
 	} else { // MPEI_ENERGY
 		s->Kp = SPEED_KP_LO;
@@ -61,22 +63,24 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi,
 	Amin = +inpRef + d;
 	Amax = -inpRef - d;
 	i = 0;
-	p = 0; // счетчик периодов
+	compl = false;
 }
 
 void pid_tune_step (void) {
 	if (State == TUNE_NEW_START) {
 		Etime = timers_get_finish_time(FULL_TIME);
-		Stime = timers_get_finish_time(END_TIME);
+		BrTime = timers_get_finish_time(T_BREAK);
 		State = TUNE_PROCEED;
 	}
 	if (State != TUNE_PROCEED) return;
 	if (timers_get_time_left(Etime) == 0) {
+tune_err:
 		State = TUNE_STOP_ERR;
 		pS->Kp = Kp;
 		pS->Ti = Ti;
 		pS->Td = Td;
 tune_end:
+		pContrl(0.0);
     	pS->Xi = Xi;
     	pS->Xd = Xd;
     	pid_r_init(pS);
@@ -88,14 +92,19 @@ tune_end:
     		+ (1 / IF_TAU) * *pInp;
 	float32_t inp;
 	if (Ttype == ZIEGLER_NICHOLS) {
-		if (timers_get_time_left(Stime) == 0) {
-			State = TUNE_COMPLETE;
-			pS->Kp *= CONST_KP;
-			pS->Ti = T * CONST_TI;
-			pS->Td = T * CONST_TD;
-			goto tune_end;
+		if (timers_get_time_left(BrTime) == 0) {
+			if (compl == true) {
+				State = TUNE_COMPLETE;
+				if (Kmul > 0) pS->Kp *= Kmul;
+				pS->Ti = T * CONST_TI;
+				pS->Td = T * CONST_TD;
+				goto tune_end;
+			} else {
+				goto tune_err;
+			}
 		}
 		inp = inpRef - Inf;
+		pid_reload:
 		Ufz = pid_r(pS, inp);
 	} else { // MPEI_ENERGY
 		if ((inpRef - Inf) >= 0) inp = d;
@@ -119,17 +128,15 @@ tune_end:
         }
     	if (Ttype == ZIEGLER_NICHOLS) {
             if (inp - dy > Amin) {
+				BrTime = timers_get_finish_time(T_BREAK);
                 float32_t A = (Amax - Amin) / 2;
                 T = abs(T_1 - T_0) * 2;
-            	p++; // счетчик периодов
-            	if (p > PRD_STABLE) {
-    				p = 0;
-    				pS->Kp *= 0.9;
-                	Amin = inpRef + inpRef / 2;
-                	Amax = inpRef - inpRef / 2;
-    				dy = A / 12.0; // зона вычисления экстремумов
-    				Stime = timers_get_finish_time(END_TIME);
-    			}
+        		compl = true;
+				pS->Kp *= 0.9;
+				dy = A / 12.0; // зона вычисления экстремумов
+				if (dy < 10) dy = 10;
+            	Amin = inpRef + inpRef / 2;
+            	Amax = inpRef - inpRef / 2;
             }
     	} else { // MPEI_ENERGY
             if ((inp - dy > Amin) && (inp < inpRef + d)) {
