@@ -226,7 +226,7 @@ cur_add:				tmp = SERVO_CURRENT;
 					ServoCount = FullCount;
 					goto servo_stop;
 				}
-#ifdef MODEL_OBJ
+#if MODEL_OBJ
 				ServoCount = (uint32_t)(FloatCount + 0.5f);
 #endif
 			} else if (diff < 0) {
@@ -249,7 +249,7 @@ cur_add:				tmp = SERVO_CURRENT;
 					ServoCount = 0;
 					goto servo_stop;
 				}
-#ifdef MODEL_OBJ
+#if MODEL_OBJ
 				ServoCount = (uint32_t)(FloatCount + 0.5f);
 #endif
 			} else { // diff == 0

@@ -96,7 +96,8 @@ typedef struct {
 #define SFREQ	1
 #endif
 
-#ifdef MODEL_OBJ
+#define ACCEPT_VAL				20.0f
+#if MODEL_OBJ | TORQUE_MODEL
 	#define SPEED_KP_EA			20.00f
 	#define SPEED_TI_EA			100.00f
 	#define SPEED_TD_EA			10.00f
@@ -105,21 +106,28 @@ typedef struct {
 	#define SPEED_TI_SP			100.00f
 	#define SPEED_TD_SP			10.00f
 	#define SPEED_DF_TAU		30.0f
-	#define TORQUE_KP			00.20f
+	#define TORQUE_KP			01.20f
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			0.00f
 	#define TORQUE_DF_TAU		100.0f
+#define SPEED_KD			0.001f
+#define TORQUE_KI			0.01f
+#define TORQUE_KD			0.001f
 #else
 	#define SPEED_KP_EA			00.30f
 	#define SPEED_TI_EA			100.00f
 	#define SPEED_KP_SP			10.00f
 	#define SPEED_TI_SP			280.00f
-	#define SPEED_TD			35.00f
+	#define SPEED_TD_EA			10.00f
+	#define SPEED_TD_SP			10.00f
 	#define SPEED_DF_TAU		00.01f
-	#define TORQUE_KP			00.20f
 	#define TORQUE_TI			10.00f
-	#define TORQUE_TD			1.00f
-	#define TORQUE_DF_TAU		0.0050f
+	#define TORQUE_TD			0.00f
+	#define TORQUE_DF_TAU		100.0f
+#define SPEED_KD			0.00f
+#define TORQUE_KP			1.20f
+#define TORQUE_KI			0.01f
+#define TORQUE_KD			0.0001f
 #endif
 
 #if UNI_CONTROL
@@ -173,7 +181,7 @@ typedef struct {
 #define PUMP_MAX			0.80f
 #define PWM_P_MAX			(PUMP_MAX * PWM_FSCALE)
 
-#ifdef MODEL_OBJ
+#if MODEL_OBJ
 	#define TORQUE_SCALE	153.846f
 #else
 	#define TORQUE_SCALE	153.846f
@@ -193,7 +201,7 @@ void work_step (void);		//выполнить шаг алгоритма управления
 uint8_t chek_out_val(int32_t val1, int32_t val2, int32_t delta);
 void work_stop(void);
 
-#ifdef MODEL_OBJ
+#if MODEL_OBJ | TORQUE_MODEL
 typedef struct {
 	uint32_t st; // начало периода дискретизации
 	float32_t out; // предыдущее значение выходного параметра звена 1

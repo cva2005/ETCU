@@ -47,7 +47,7 @@ typedef enum {
 #define SENS_I_Om			0.200f // output current sensor from the DRV8816
 #define SENS_I_Gain			5.00f // Current-proportional output Gain DRV8816
 #define CURR_SENS_mV		(float32_t)st(AI_P_MANIFOLD)
-#ifdef MODEL_OBJ
+#if MODEL_OBJ
 #define CURR_VIEW(x)		set(AO_PC_P_MANIFOLD, (int32_t)x)
 #else
 #define CURR_VIEW(x)

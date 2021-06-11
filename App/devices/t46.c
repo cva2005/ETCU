@@ -53,6 +53,7 @@ void t46_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 	            *dp++ = data[4];
 	            *dp++ = data[7];
 	            *dp++ = data[6];
+#if !TORQUE_MODEL
 #ifdef T46_DEBUG
 	            dp = (char *)&torque;
 #else
@@ -62,6 +63,7 @@ void t46_update_data (char *data, uint8_t len, uint8_t adr, uint8_t function) {
 	            *dp++ = data[0];
 	            *dp++ = data[3];
 	            *dp++ = data[2];
+#endif // TORQUE_MODEL
 #ifdef T46_DEBUG
 				t46_rx_data.freq = (int32_t)(speed * 1000);
 				t46_rx_data.torque = (int32_t)(torque * 1000);

@@ -70,15 +70,17 @@ void main_app (void) {
 #endif
 		CanOpen_step();
 		bcu_step();
-#ifdef FREQ_DRIVER
+#if FREQ_DRIVER
 		atv61_step();
 #endif
 		pc_device_step();
-#ifdef LOCAL_TEMP
+#if LOCAL_TEMP
 		ds18b20_step();
 #endif
-		//nl_3dpas_step();
-#ifdef TORQ_DRIVER
+#if NL_3DPAS_DRIVER
+		nl_3dpas_step();
+#endif
+#if TORQ_DRIVER
 		t46_step();
 #endif
 		control_step();
