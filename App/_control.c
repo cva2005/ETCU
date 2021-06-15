@@ -34,6 +34,9 @@ static state_t state;
 static cmd_t cmd;
 static timeout_t time;
 static error_t error;
+static stime_t ext_sel_time;
+static bool ExtMode = false;
+static uint32_t ext_mode_cnt = 0;
 static stime_t cntrl_M_time; // таймер дискретизации регулятора момента
 pid_r_instance Speed_PID;
 pid_r_instance Torque_PID;
@@ -557,6 +560,29 @@ servo_stop_error:
 #else
 	#error "Accelerator driver not defined"
 #endif
+#else // !ENGINE_CONTROL
+	servo_st srv_st = servo_state();
+	sg_st.ta.i.a[1] = (int32_t)srv_st;
+	sg_st.ta.i.a[0] = ERROR_CODE;
+	if (SERVO_CURR_HIGH) { // превышение тока!
+		if (timers_get_time_left(err_time) == 0) {
+			error.bit.servo_error = 1;
+			goto servo_stop_error;
+		}
+	}
+	if (srv_st != SERVO_READY) {
+		if (srv_st == SERVO_NOT_INIT) {
+			error.bit.servo_not_init = 1;
+		} else { // SERVO_STOP_ERR
+			error.bit.no_ta = 1;
+		}
+servo_stop_error:
+		state.step = ST_STOP_ERR;
+		cmd.opr = ST_STOP_ERR;
+	} else { //extern uint32_t CurrTime;
+		//sg_st.ta.i.a[0] = CurrTime * 1000;
+		sg_st.ta.i.a[0] = servo_get_pos() * 1000;
+	}
 #endif // #if ENGINE_CONTROL
 
 //----данные датчика параметров атмосферы
@@ -606,7 +632,12 @@ void update_devices (void) {
 void read_keys (void) {
 	uint32_t time_all;
 
-	if (timers_get_time_left(time.key_delay) != 0) return;
+	if (timers_get_time_left(time.key_delay) != 0) {
+		return;
+	}
+	if (timers_get_time_left(ext_sel_time) == 0) {
+		ext_mode_cnt = 0;
+	}
 	if (st(DI_PC_TEST_START)) {
 		cmd.opr = OPR_START_TEST;
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
@@ -624,7 +655,21 @@ void read_keys (void) {
 			error.bit.servo_not_init = 1;
 		}
 #endif
+		if (timers_get_time_left(ext_sel_time) != 0) {
+			if (++ext_mode_cnt >= 3) {
+				ext_mode_cnt = 0;
+				if (!ExtMode) {
+					ExtMode = true;
+					error.bit.ext_contrl = 1;
+				} else {
+					ExtMode = false;
+					error.bit.int_contrl = 1;
+				}
+			}
+
+		}
 		time.key_delay = timers_get_finish_time(st(CFG_KEY_DELAY));
+		ext_sel_time = timers_get_finish_time(st(CFG_KEY_DELAY) * 3);
 	}
 #if 0
 	if (st(ENGINE_KEY_TASK)) {
@@ -652,37 +697,32 @@ void read_keys (void) {
 //----------------------------------------------------------------------------------------------
 void work_step (void) {
 	int32_t val;
+	if (st(SAVE_PID_VAL) || !pid_init) {
+		pid_init = true;
+		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
+		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
+		float32_t sp_Kp, sp_Ti, sp_Td;
 #if ENGINE_CONTROL
-	if (SpeedCntrl != TSC1Control) {
-		if (st(SAVE_PID_VAL) || !pid_init) {
-			pid_init = true;
-			set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
-			set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
-			float32_t sp_Kp, sp_Ti, sp_Td;
-			if (SpeedCntrl == EaccControl) {
-				sp_Kp = SPEED_KP_EA;
-				sp_Ti = SPEED_TI_EA;
-				sp_Td = SPEED_TD_EA;
-			} else {
-				sp_Kp = SPEED_KP_SP/* * StSens_K*/;
-				sp_Ti = SPEED_TI_SP/* * StSens_K*/;
-				sp_Td = SPEED_TD_SP;
-			}
-			SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
-			SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
-			SpeedTd = sp_Td;
-#else
-	{
-		{
-#endif
-			if (st(SAVE_PID_VAL) || !pid_init) {
-				pid_init = true;
-				set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
-				TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
-				TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
-				init_PID(); // Регуляторы контуров управления
-			}
+		if (SpeedCntrl == EaccControl) {
+			sp_Kp = SPEED_KP_EA;
+			sp_Ti = SPEED_TI_EA;
+			sp_Td = SPEED_TD_EA;
+		} else {
+			sp_Kp = SPEED_KP_SP/* * StSens_K*/;
+			sp_Ti = SPEED_TI_SP/* * StSens_K*/;
+			sp_Td = SPEED_TD_SP;
 		}
+#else
+		sp_Kp = SPEED_KP;
+		sp_Ti = SPEED_TI;
+		sp_Td = SPEED_TD;
+#endif
+		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
+		SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
+		SpeedTd = sp_Td;
+		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
+		TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
+		init_PID(); // Регуляторы контуров управления
 	}
 //--------------------ОБКАТКА----------------------------
 	if (cmd.opr != state.opr) {
@@ -714,7 +754,7 @@ void work_step (void) {
 					time.alg = timers_get_finish_time(15000);
 #if MODEL_OBJ
 					Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 - 50.0;
-#endif
+#endif // #if MODEL_OBJ
 				}
 			} else { // SpeedCntrl == ServoControl
 				if (state.step == ST_STOP) {
@@ -728,7 +768,7 @@ void work_step (void) {
 #ifndef NO_BATTERY
 						if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
 							Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
-#endif
+#endif // #ifndef NO_BATTERY
 							set(DO_STARTER, ON);
 #if MODEL_OBJ
 							state.step = ST_SET_ROTATION;
@@ -737,13 +777,13 @@ void work_step (void) {
 #else
 							time.alg = timers_get_finish_time(st(CFG_STARTER_ON_TIME));
 							state.step = ST_STARTER_ON;
-#endif
+#endif // #if MODEL_OBJ
 #ifndef NO_BATTERY
 						} else {
 							error.bit.err_akb = 1;
 							state.step = ST_STOP_ERR;
 						}
-#endif
+#endif // #ifndef NO_BATTERY
 					}
 				}
 				if (state.step == ST_STARTER_ON) {
@@ -771,24 +811,24 @@ void work_step (void) {
 					if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
 #ifndef SERVO_CONTROL
 						Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
-#endif
-#endif
+#endif // #ifndef SERVO_CONTROL
+#endif // #ifndef NO_BATTERY
 						set(DO_STARTER, ON);
 #if MODEL_OBJ
 						init_obj(); // нач. установка ОР1, ОР2
 						state.step = ST_SET_ROTATION;
 						time.alg = timers_get_finish_time(4000);
 						cntrl_M_time = timers_get_finish_time(0);
-#else
+#else // !#if MODEL_OBJ
 						time.alg = timers_get_finish_time(st(CFG_STARTER_ON_TIME));
 						state.step = ST_STARTER_ON;
-#endif
+#endif // #if MODEL_OBJ
 #ifndef NO_BATTERY
 					} else {
 						error.bit.err_akb = 1;
 						state.step = ST_STOP_ERR;
 					}
-#endif
+#endif // #ifndef NO_BATTERY
 				}
 			}
 			if (state.step == ST_STARTER_ON) {
@@ -815,10 +855,10 @@ void work_step (void) {
 						set(DO_STARTER, OFF);
 						time.alg = timers_get_finish_time(0);
 					}
-#else
+#else // !#if UNI_CONTROL
 					set(DO_STARTER, OFF);
 					time.alg = timers_get_finish_time(0);
-#endif
+#endif // #if UNI_CONTROL
 					state.step = ST_SET_ROTATION;
 					cntrl_M_time = timers_get_finish_time(0);
 				} else {
@@ -827,11 +867,11 @@ void work_step (void) {
 						StCnt = 0;
 						init_obj(); // нач. установка ОР1, ОР2
 						goto engine_start;
-#else
+#else // !#if MODEL_OBJ
 						set(START_RELAY, OFF);
 						error.bit.engine_start = 1;
 						state.step = ST_STOP_ERR;
-#endif
+#endif // #if MODEL_OBJ
 					}
 				}
 			}
@@ -850,7 +890,7 @@ void work_step (void) {
 					}
 #endif // MODEL_OBJ
 				}
-#else
+#else // !#if UNI_CONTROL
 #if MODEL_OBJ
 				if (timers_get_time_left(time.alg) == 0) {
 					if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
@@ -870,28 +910,104 @@ void work_step (void) {
 						state.step = ST_STOP_ERR;
 					}
 				}
-#endif
+#endif // #ifdef SPSH_CONTROL
 				Speed_loop(); // управление контуром оборотов
 				Torque_loop(Absolute); // управление контуром крутящего момента
 			}
-#else
+#else // EXTERNAL CONTROL
 		if (st(DI_PC_HOT_TEST)) { //горячая обкатка
-			if (state.step == ST_STOP) {
-				set(DO_OIL_PUMP, ON);
-				set(DO_FUEL_PUMP, ON);
-				state.step = ST_FUEL_PUMP;
-				time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
-			} else if (state.step == ST_FUEL_PUMP) {
-				if (timers_get_time_left(time.alg) == 0) {
-					state.step = ST_WAIT_ENGINE_START;
+			if (ExtMode == false) {
+				if (state.step == ST_STOP) {
+					set(DO_OIL_PUMP, ON);
+					set(DO_FUEL_PUMP, ON);
+					state.step = ST_FUEL_PUMP;
+					time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
 				}
-			} else if (state.step == ST_WAIT_ENGINE_START) {
-				if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
-					state.step = ST_SET_ROTATION;
+				if (state.step == ST_FUEL_PUMP) {
+					if (timers_get_time_left(time.alg) == 0) {
+#ifndef NO_BATTERY
+						if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
+#endif // #ifndef NO_BATTERY
+							set(DO_STARTER, ON);
+#if MODEL_OBJ
+							Speed_Out = (float)st(CFG_MIN_ROTATE) / 1000.0 + 50.0;
+							init_obj(); // нач. установка ОР1, ОР2
+							state.step = ST_SET_ROTATION;
+							time.alg = timers_get_finish_time(4000);
+							cntrl_M_time = timers_get_finish_time(0);
+#else // !#if MODEL_OBJ
+							time.alg = timers_get_finish_time(st(CFG_STARTER_ON_TIME));
+							state.step = ST_STARTER_ON;
+#endif // #if MODEL_OBJ
+#ifndef NO_BATTERY
+						} else {
+							error.bit.err_akb = 1;
+							state.step = ST_STOP_ERR;
+						}
+#endif // #ifndef NO_BATTERY
+					}
 				}
-			} else if (state.step == ST_SET_ROTATION) { // регулировка момента
-				if (st(AI_ROTATION_SPEED) < st(CFG_MIN_ROTATE)) cmd.opr = ST_STOP;
-				else Torque_loop(Absolute); // управление контуром крутящего момента
+				if (state.step == ST_STARTER_ON) {
+					if (st(AO_PC_CURRENT) >= st(CFG_MIN_I_STARTER)) {
+						state.step = ST_WAIT_ENGINE_START;
+					} else {
+						if (timers_get_time_left(time.alg) == 0) {
+							error.bit.err_starter = 1;
+							state.step = ST_STOP_ERR;
+						}
+					}
+				}
+				if (state.step == ST_WAIT_ENGINE_START) {
+					if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+						engine_start:
+						pid_r_init(&Speed_PID);
+						set(DO_STARTER, OFF);
+						time.alg = timers_get_finish_time(0);
+						state.step = ST_SET_ROTATION;
+						cntrl_M_time = timers_get_finish_time(0);
+					} else {
+						if (timers_get_time_left(time.alg) == 0) {
+#if MODEL_OBJ
+							StCnt = 0;
+							init_obj(); // нач. установка ОР1, ОР2
+							goto engine_start;
+#else // !#if MODEL_OBJ
+							set(START_RELAY, OFF);
+							error.bit.engine_start = 1;
+							state.step = ST_STOP_ERR;
+#endif // #if MODEL_OBJ
+						}
+					}
+				}
+				if (state.step == ST_SET_ROTATION) { // Двухконтурная регулировка оборотов и момента
+#if MODEL_OBJ
+					if (timers_get_time_left(time.alg) == 0) {
+						if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+							set(DO_STARTER, OFF);
+						}
+					}
+#endif // MODEL_OBJ
+					Speed_loop(); // управление контуром оборотов
+					Torque_loop(Absolute); // управление контуром крутящего момента
+				}
+			} else { // EXTERNAL CONTROL MODE
+				if (state.step == ST_STOP) {
+					set(DO_OIL_PUMP, ON);
+					set(DO_FUEL_PUMP, ON);
+					state.step = ST_FUEL_PUMP;
+					time.alg = timers_get_finish_time(st(CFG_FUEL_PUMP_TIMEOUT));
+				} else if (state.step == ST_FUEL_PUMP) {
+					if (timers_get_time_left(time.alg) == 0) {
+						state.step = ST_WAIT_ENGINE_START;
+					}
+				} else if (state.step == ST_WAIT_ENGINE_START) {
+					if (st(AI_ROTATION_SPEED) >= st(CFG_MIN_ROTATE)) { // Запуск двигателя
+						state.step = ST_SET_ROTATION;
+					}
+				} else if (state.step == ST_SET_ROTATION) { // регулировка момента
+					if (st(AI_ROTATION_SPEED) < st(CFG_MIN_ROTATE)) cmd.opr = ST_STOP;
+					else Torque_loop(Absolute); // управление контуром крутящего момента
+				}
 			}
 #endif // #if ENGINE_CONTROL
 		} else { // ! if (st(DI_PC_HOT_TEST))
@@ -1206,12 +1322,16 @@ void init_PID (void) {
 	Torque_PID.Td = TORQUE_TD;
 	Torque_PID.Tf = TORQUE_DF_TAU;
 	Torque_PID.Xi = 0.0f;
+#if SERVO_CONTROL
+	Speed_PID.Xd = ZONE_DEAD_REF;
+#endif
 }
 
 /*
  * Управление контуром оборотов
  */
 void Speed_loop (void) {
+#if ENGINE_CONTROL
 	int32_t set_out; float32_t pi_out, task, torq_corr;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
@@ -1293,6 +1413,33 @@ void Speed_loop (void) {
 		Speed_Out = get_obj(&FrequeObj, pi_out);
 #endif // MODEL_OBJ
 	}
+#else // #if !ENGINE_CONTROL
+	int32_t set_out; float32_t out, task, torq_corr;
+	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
+		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
+		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+		task -= Speed_Out; // PID input Error
+		out = fabs(task);
+		torq_corr = (Torque_Out / TORQUE_MAX);
+		if ((servo_get_pos() >= 99.0) && (task > 0)) {
+			Speed_PID.Ti = 0;
+		} else {
+			Speed_PID.Ti = SpeedTi / exp(-out / SPEED_MAX + torq_corr);
+			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
+		}
+		out = pid_r(&Speed_PID, task);
+#if MODEL_OBJ
+		//if (task)
+#endif
+		servo_set_out(out * SPEED_MUL);
+#if MODEL_OBJ
+		torq_corr *= TORQUE_FACTOR;
+		out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
+		if (out < SPD_MIN) out = SPD_MIN;
+		Speed_Out = get_obj(&FrequeObj, out);
+#endif // MODEL_OBJ
+	}
+#endif // #if ENGINE_CONTROL
 }
 
 /*

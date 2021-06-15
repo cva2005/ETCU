@@ -122,7 +122,7 @@ stop_full:
 
 void servo_init(void)
 {
-#ifdef MODEL_NO_SERVO
+#if MODEL_NO_SERVO
 	state = SERVO_READY;
 #else
 	state = SERVO_NOT_INIT;

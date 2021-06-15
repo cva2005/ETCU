@@ -110,9 +110,11 @@ typedef struct {
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			0.00f
 	#define TORQUE_DF_TAU		100.0f
-#define SPEED_KD			0.001f
-#define TORQUE_KI			0.01f
-#define TORQUE_KD			0.001f
+	#define TORQUE_KI			0.01f
+	#define TORQUE_KD			0.001f
+	#define SPEED_KP			0.080f
+	#define SPEED_TI			150.0f
+	#define SPEED_TD			10.0f
 #else
 	#define SPEED_KP_EA			00.30f
 	#define SPEED_TI_EA			100.00f
@@ -124,10 +126,12 @@ typedef struct {
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			0.00f
 	#define TORQUE_DF_TAU		100.0f
-#define SPEED_KD			0.00f
-#define TORQUE_KP			1.20f
-#define TORQUE_KI			0.01f
-#define TORQUE_KD			0.0001f
+	#define TORQUE_KP			0.10f
+	#define TORQUE_KI			0.01f
+	#define TORQUE_KD			0.0001f
+	#define SPEED_KP			0.12f
+	#define SPEED_TI			100.0f
+	#define SPEED_TD			10.0f
 #endif
 
 #if UNI_CONTROL
@@ -138,7 +142,11 @@ typedef struct {
 #elif SERVO_CONTROL
 	#define ACCEL_SET			servo_set_out
 	#define ACCEL_STATE			servo_get_pos()
+#if MODEL_OBJ
+	#define ZONE_DEAD_REF		30.0f
+#else
 	#define ZONE_DEAD_REF		80.0f
+#endif
 	#define SPEED_MUL			1.20f
 #elif SPSH_CONTROL
 	#define ACCEL_SET			spsh20_set_pos
