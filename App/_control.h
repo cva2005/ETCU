@@ -123,10 +123,10 @@ typedef struct {
 	#define SPEED_TD_EA			10.00f
 	#define SPEED_TD_SP			10.00f
 	#define SPEED_DF_TAU		00.01f
+	#define TORQUE_KP			1.00f
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			0.00f
 	#define TORQUE_DF_TAU		100.0f
-	#define TORQUE_KP			1.00f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
 	#define SPEED_KP			0.12f

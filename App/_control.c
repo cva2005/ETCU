@@ -59,7 +59,7 @@ bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
 bool pid_init = false;
-float32_t SpeedKp, TorqueKp;
+float32_t SpeedKp, TorqueKp, PwmOld;
 float32_t TorqueTi, SpeedTi, SpeedTd;
 static unsigned StopCount = 0;
 static bool tune_start = false;
@@ -1475,6 +1475,15 @@ void Torque_loop (torq_val_t val) {
 			task -= Torque_Out; // PID input Error
 			if (task > ACCEPT_VAL) task = ACCEPT_VAL;
 			else if (task < -ACCEPT_VAL) task = -ACCEPT_VAL;
+			if (task > 0) {
+				if (PwmOld == PWM_FSCALE) {
+					return;
+				}
+			} else { // task <= 0
+				if (PwmOld == 0) {
+					return;
+				}
+			}
 			pi_out = pid_r(&Torque_PID, task);
 #if MODEL_OBJ | TORQUE_MODEL
 			Torque_Out = get_obj(&TorqueObj, pi_out);
@@ -1482,6 +1491,7 @@ void Torque_loop (torq_val_t val) {
 			if (pi_out < 0) pi_out = 0;
 			pi_out *= TORQUE_SCALE;
 			if (pi_out > PWM_FSCALE) pi_out = PWM_FSCALE;
+			PwmOld = pi_out;
 			pwm_flo = (uint32_t)(PWM_P_MIN + pi_out * (PUMP_MAX - PUMP_MIN)); // Гидро Насос
 			if (pwm_flo > PWM_P_MAX) pwm_flo = PWM_P_MAX;
 			pwm1_out = (uint32_t)pwm_flo;
