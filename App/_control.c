@@ -561,27 +561,29 @@ servo_stop_error:
 	#error "Accelerator driver not defined"
 #endif
 #else // !ENGINE_CONTROL
-	servo_st srv_st = servo_state();
-	sg_st.ta.i.a[1] = (int32_t)srv_st;
-	sg_st.ta.i.a[0] = ERROR_CODE;
-	if (SERVO_CURR_HIGH) { // превышение тока!
-		if (timers_get_time_left(err_time) == 0) {
-			error.bit.servo_error = 1;
-			goto servo_stop_error;
+	if (ExtMode == false) {
+		servo_st srv_st = servo_state();
+		sg_st.ta.i.a[1] = (int32_t)srv_st;
+		sg_st.ta.i.a[0] = ERROR_CODE;
+		if (SERVO_CURR_HIGH) { // превышение тока!
+			if (timers_get_time_left(err_time) == 0) {
+				error.bit.servo_error = 1;
+				goto servo_stop_error;
+			}
 		}
-	}
-	if (srv_st != SERVO_READY) {
-		if (srv_st == SERVO_NOT_INIT) {
-			error.bit.servo_not_init = 1;
-		} else { // SERVO_STOP_ERR
-			error.bit.no_ta = 1;
+		if (srv_st != SERVO_READY) {
+			if (srv_st == SERVO_NOT_INIT) {
+				error.bit.servo_not_init = 1;
+			} else { // SERVO_STOP_ERR
+				error.bit.no_ta = 1;
+			}
+			servo_stop_error:
+			state.step = ST_STOP_ERR;
+			cmd.opr = ST_STOP_ERR;
+		} else { //extern uint32_t CurrTime;
+			//sg_st.ta.i.a[0] = CurrTime * 1000;
+			sg_st.ta.i.a[0] = servo_get_pos() * 1000;
 		}
-servo_stop_error:
-		state.step = ST_STOP_ERR;
-		cmd.opr = ST_STOP_ERR;
-	} else { //extern uint32_t CurrTime;
-		//sg_st.ta.i.a[0] = CurrTime * 1000;
-		sg_st.ta.i.a[0] = servo_get_pos() * 1000;
 	}
 #endif // #if ENGINE_CONTROL
 
@@ -1231,7 +1233,7 @@ void work_stop (void) {
 		set(DO_FUEL_PUMP, OFF);
 	}
 	set(AO_SERVO_POSITION, 0);
-	//init_PID();
+	init_PID();
 	//pid_init = false;
 #if UNI_CONTROL
 	if (SpeedCntrl == TSC1Control) {
@@ -1264,7 +1266,7 @@ void work_stop (void) {
 	Torque_Out = 0;
 	Pwm1_Out = Pwm2_Out = 0;
 	init_obj();
-	init_PID();
+	//init_PID();
 #endif
 }
 
@@ -1315,6 +1317,9 @@ void init_PID (void) {
 		Speed_PID.Td = SpeedTd;
 		Speed_PID.Tf = SPEED_DF_TAU;
 		Speed_PID.Xi = SPEED_MAX / XI_DIV;
+#if SERVO_CONTROL
+		Speed_PID.Xd = ZONE_DEAD_REF;
+#endif
 	}
 	pid_r_init(&Torque_PID);
 	Torque_PID.Kp = TorqueKp;
@@ -1322,9 +1327,6 @@ void init_PID (void) {
 	Torque_PID.Td = TORQUE_TD;
 	Torque_PID.Tf = TORQUE_DF_TAU;
 	Torque_PID.Xi = 0.0f;
-#if SERVO_CONTROL
-	Speed_PID.Xd = ZONE_DEAD_REF;
-#endif
 }
 
 /*

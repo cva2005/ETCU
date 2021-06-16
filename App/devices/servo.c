@@ -92,7 +92,7 @@ stop_full:
 		set(FORWARD_MOV, OFF);
 		return SERVO_STOP_FULL;
 	} else if (st(FORWARD_MOV)) {
-#ifndef MODEL_NO_SERVO
+#if !MODEL_NO_SERVO
 		pulse_check(SERVO_FORWARD);
 #endif
 		curr_null = false;
@@ -104,7 +104,7 @@ stop_full:
 		}*/
 		return SERVO_FORWARD;
 	} else if (st(REVERS_MOV)) {
-#ifndef MODEL_NO_SERVO
+#if !MODEL_NO_SERVO
 		pulse_check(SERVO_REVERS);
 #endif
 		/*if (state != SERVO_NOT_INIT) {

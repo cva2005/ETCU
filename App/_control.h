@@ -96,7 +96,6 @@ typedef struct {
 #define SFREQ	1
 #endif
 
-#define ACCEPT_VAL				20.0f
 #if MODEL_OBJ | TORQUE_MODEL
 	#define SPEED_KP_EA			20.00f
 	#define SPEED_TI_EA			100.00f
@@ -115,6 +114,7 @@ typedef struct {
 	#define SPEED_KP			0.080f
 	#define SPEED_TI			150.0f
 	#define SPEED_TD			10.0f
+	#define ACCEPT_VAL			20.0f
 #else
 	#define SPEED_KP_EA			00.30f
 	#define SPEED_TI_EA			100.00f
@@ -126,12 +126,13 @@ typedef struct {
 	#define TORQUE_TI			10.00f
 	#define TORQUE_TD			0.00f
 	#define TORQUE_DF_TAU		100.0f
-	#define TORQUE_KP			0.10f
+	#define TORQUE_KP			1.00f
 	#define TORQUE_KI			0.01f
 	#define TORQUE_KD			0.0001f
 	#define SPEED_KP			0.12f
-	#define SPEED_TI			100.0f
+	#define SPEED_TI			150.0f
 	#define SPEED_TD			10.0f
+	#define ACCEPT_VAL			20.0f
 #endif
 
 #if UNI_CONTROL
