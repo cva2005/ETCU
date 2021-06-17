@@ -581,8 +581,15 @@ servo_stop_error:
 			state.step = ST_STOP_ERR;
 			cmd.opr = ST_STOP_ERR;
 		} else { //extern uint32_t CurrTime;
-			//sg_st.ta.i.a[0] = CurrTime * 1000;
-			sg_st.ta.i.a[0] = servo_get_pos() * 1000;
+			if (Ready == false) {
+				Ready = true;
+				error.bit.servo_not_init = 0;
+				error.bit.servo_init_ok = 1;
+				cmd.opr = ST_STOP_TIME;
+			} else {
+				//sg_st.ta.i.a[0] = CurrTime * 1000;
+				sg_st.ta.i.a[0] = servo_get_pos() * 1000;
+			}
 		}
 	}
 #endif // #if ENGINE_CONTROL
@@ -1318,7 +1325,8 @@ void init_PID (void) {
 		Speed_PID.Tf = SPEED_DF_TAU;
 		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 #if SERVO_CONTROL
-		Speed_PID.Xd = ZONE_DEAD_REF;
+		Speed_PID.Xd = ZONE_DEAD_REF / servoKd();
+		Speed_PID.Kp /= servoKd();
 #endif
 	}
 	pid_r_init(&Torque_PID);
@@ -1416,25 +1424,16 @@ void Speed_loop (void) {
 #endif // MODEL_OBJ
 	}
 #else // #if !ENGINE_CONTROL
-	int32_t set_out; float32_t out, task, torq_corr;
+	int32_t set_out; float32_t out, task;
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
-		out = fabs(task);
-		torq_corr = (Torque_Out / TORQUE_MAX);
-		if ((servo_get_pos() >= 99.0) && (task > 0)) {
-			Speed_PID.Ti = 0;
-		} else {
-			Speed_PID.Ti = SpeedTi / exp(-out / SPEED_MAX + torq_corr);
-			Speed_PID.Kp = SpeedKp * (1 + torq_corr);
-		}
+		if ((servo_get_pos() >= 98.0) && (task > 0)) return;
 		out = pid_r(&Speed_PID, task);
-#if MODEL_OBJ
-		//if (task)
-#endif
 		servo_set_out(out * SPEED_MUL);
 #if MODEL_OBJ
+		float32_t torq_corr = (Torque_Out / TORQUE_MAX);
 		torq_corr *= TORQUE_FACTOR;
 		out = servo_get_pos() * SPEED_FACT * (1 - torq_corr);
 		if (out < SPD_MIN) out = SPD_MIN;

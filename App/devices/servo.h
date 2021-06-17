@@ -57,6 +57,7 @@ void servo_step(void);
 servo_st servo_state(void);
 float32_t servo_get_pos(void);
 void servo_set_out(float32_t pid_out);
+float32_t servoKd(void);
 
 extern stime_t err_time;
 extern bool servo_stop;

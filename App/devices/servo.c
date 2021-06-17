@@ -16,7 +16,7 @@ bool CurrInitForw = false;
 bool CurrInitRev = false;
 uint32_t ServoCount = 0;
 float32_t TaskCount = 0, FloatCount = 0;
-int32_t FullCount = CNT_FULL_VAL;
+int32_t FullCount;
 uint32_t StateCnt = 0;
 static uint32_t NullCnt = 0;
 static uint32_t FullCnt = 0;
@@ -92,9 +92,7 @@ stop_full:
 		set(FORWARD_MOV, OFF);
 		return SERVO_STOP_FULL;
 	} else if (st(FORWARD_MOV)) {
-#if !MODEL_NO_SERVO
 		pulse_check(SERVO_FORWARD);
-#endif
 		curr_null = false;
 		/*if (state != SERVO_NOT_INIT) {
 			if (CURR_FORW_HIGH) { // превышение тока открытие
@@ -104,9 +102,7 @@ stop_full:
 		}*/
 		return SERVO_FORWARD;
 	} else if (st(REVERS_MOV)) {
-#if !MODEL_NO_SERVO
 		pulse_check(SERVO_REVERS);
-#endif
 		/*if (state != SERVO_NOT_INIT) {
 			if (servo_stop && !curr_null) { // переход в режим "стоп"
 				if (CURR_REVR_HIGH) { // превышение тока закрытие
@@ -122,6 +118,7 @@ stop_full:
 
 void servo_init(void)
 {
+	FullCount = CNT_FULL_VAL;
 #if MODEL_NO_SERVO
 	state = SERVO_READY;
 #else
@@ -226,7 +223,7 @@ cur_add:				tmp = SERVO_CURRENT;
 					ServoCount = FullCount;
 					goto servo_stop;
 				}
-#if MODEL_OBJ
+#if MODEL_NO_SERVO
 				ServoCount = (uint32_t)(FloatCount + 0.5f);
 #endif
 			} else if (diff < 0) {
@@ -249,7 +246,7 @@ cur_add:				tmp = SERVO_CURRENT;
 					ServoCount = 0;
 					goto servo_stop;
 				}
-#if MODEL_OBJ
+#if MODEL_NO_SERVO
 				ServoCount = (uint32_t)(FloatCount + 0.5f);
 #endif
 			} else { // diff == 0
@@ -270,6 +267,12 @@ servo_st servo_state(void)
 float32_t servo_get_pos(void)
 {
 	return (FloatCount * 100.000) / (float32_t)FullCount;
+}
+
+/* servo multiply K */
+float32_t servoKd(void)
+{
+	return (float32_t) FullCount / (float32_t)CNT_FULL_VAL;
 }
 
 /* set position of control */
