@@ -33,6 +33,7 @@ typedef enum {
 #define SERVO_MUL			0.0012f
 #define CURR_ERR			2400
 #define CURR_MIN			1500
+#define CURR_DEBUG			50
 #define CORRECT_CURR		(CurrTmpVal * 13) / 10
 #define SERVO_TIME_ERR		1000
 #define SERVO_ON_ERR		1000

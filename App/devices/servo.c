@@ -118,10 +118,14 @@ stop_full:
 
 void servo_init(void)
 {
-	FullCount = CNT_FULL_VAL;
 #if MODEL_NO_SERVO
 	state = SERVO_READY;
+	FullCount = MODEL_NO_SERVO;
+	ForwCurrMax = CURR_DEBUG;
+	RevCurrMax = CURR_DEBUG;
+	ErrCurrMax = CURR_DEBUG * 2;
 #else
+	FullCount = CNT_FULL_VAL;
 	state = SERVO_NOT_INIT;
 	ForwCurrMax = RevCurrMax = ErrCurrMax = CURR_ERR;
 	CurrFilterOut = 0;

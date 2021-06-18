@@ -585,6 +585,7 @@ servo_stop_error:
 				Ready = true;
 				error.bit.servo_not_init = 0;
 				error.bit.servo_init_ok = 1;
+				error.bit.int_contrl = 1;
 				cmd.opr = ST_STOP_TIME;
 			} else {
 				//sg_st.ta.i.a[0] = CurrTime * 1000;
@@ -1082,19 +1083,23 @@ void set_indication (void) {
 	set(AO_PC_POWER, st(AI_POWER));
 	//датчик момента
 	if ((state.opr == OPR_START_TEST) && (st(DI_PC_HOT_TEST) == OFF)) {
-#ifndef FREQ_DRIVER
-		set(AO_PC_ROTATE, st(AI_PC_ROTATE));
-#else
+#if FREQ_DRIVER
 		//set(AO_PC_ROTATE, st(AI_FC_FREQ));
 		set(AO_PC_ROTATE, st(AI_ROTATION_SPEED));
+#else
+		set(AO_PC_ROTATE, st(AI_PC_ROTATE));
 #endif
 	} else {
 		//set(AO_PC_ROTATE, st(AI_ROTATION_ETCU));
 		set(AO_PC_ROTATE, st(AI_ROTATION_SPEED));
 	}
+#if SERVO_CONTROL & MODEL_OBJ
+	 // датчик тока СП
+	set(AO_PC_T_EXHAUST, /*st(AI_VALVE_POSITION)*/CurrFilterOut * 1000.0);
+#else
 	//температура выхлопных газов
 	set(AO_PC_T_EXHAUST, st(AI_T_EXHAUST));
-	//set(AO_PC_T_EXHAUST, st(AI_VALVE_POSITION) * 1000); // ToDo датчик тока СП
+#endif
 	//датчики температуры двигателя (датчик ВГ?)
 	set(AO_PC_T_COOLANT_IN, st(AI_T_COOLANT_IN));
 	set(AO_PC_T_COOLANT_OUT, st(AI_T_COOLANT_OUT));
@@ -1430,6 +1435,7 @@ void Speed_loop (void) {
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
 		task -= Speed_Out; // PID input Error
 		if ((servo_get_pos() >= 98.0) && (task > 0)) return;
+		if ((servo_get_pos() <= 2.0) && (task < 0)) return;
 		out = pid_r(&Speed_PID, task);
 		servo_set_out(out * SPEED_MUL);
 #if MODEL_OBJ
