@@ -58,11 +58,14 @@ uint32_t Pwm1_Out = 0, Pwm2_Out = 0;
 bool CntrlDevSel = false;
 static SpeedCntrl_t SpeedCntrl = TSC1Control;
 static bool Ready;
+static bool TuneCheck = false;
+static bool TuneOk = false;
 bool pid_init = false;
 float32_t SpeedKp, TorqueKp, PwmOld;
 float32_t TorqueTi, SpeedTi, SpeedTd;
 static unsigned StopCount = 0;
 static bool tune_start = false;
+static float32_t oldMulKp, oldMulTi;
 
 void signals_start_cfg (void) {
 	uint16_t cnt, nmb;
@@ -580,7 +583,7 @@ servo_stop_error:
 			servo_stop_error:
 			state.step = ST_STOP_ERR;
 			cmd.opr = ST_STOP_ERR;
-		} else { //extern uint32_t CurrTime;
+		} else { // SERVO_READY
 			if (Ready == false) {
 				Ready = true;
 				error.bit.servo_not_init = 0;
@@ -706,30 +709,40 @@ void read_keys (void) {
 
 //----------------------------------------------------------------------------------------------
 void work_step (void) {
-	int32_t val;
-	if (st(SAVE_PID_VAL) || !pid_init) {
+	int32_t val = st(SAVE_PID_VAL);
+	if (val || (!pid_init && state.step == ST_FUEL_PUMP)) {
 		pid_init = true;
 		set(AO_PC_SPEED_KP_KI, st(AI_PC_SPEED_KP_KI));
 		set(AO_PC_TORQUE_KP_KI, st(AI_PC_TORQUE_KP_KI));
 		float32_t sp_Kp, sp_Ti, sp_Td;
-#if ENGINE_CONTROL
-		if (SpeedCntrl == EaccControl) {
-			sp_Kp = SPEED_KP_EA;
-			sp_Ti = SPEED_TI_EA;
-			sp_Td = SPEED_TD_EA;
+		float32_t mul_Kp = (float32_t)(AI_PC_SPEED_KP) / 100.0;
+		float32_t mul_Ti = (float32_t)(AI_PC_SPEED_TI) / 100.0;
+		if (TuneOk) {
+			sp_Kp = Speed_PID.Kp / oldMulKp;
+			sp_Ti = Speed_PID.Ti / oldMulTi;
+			sp_Td = Speed_PID.Td / oldMulTi;
 		} else {
-			sp_Kp = SPEED_KP_SP/* * StSens_K*/;
-			sp_Ti = SPEED_TI_SP/* * StSens_K*/;
-			sp_Td = SPEED_TD_SP;
-		}
+#if ENGINE_CONTROL
+			if (SpeedCntrl == EaccControl) {
+				sp_Kp = SPEED_KP_EA;
+				sp_Ti = SPEED_TI_EA;
+				sp_Td = SPEED_TD_EA;
+			} else {
+				sp_Kp = SPEED_KP_SP/* * StSens_K*/;
+				sp_Ti = SPEED_TI_SP/* * StSens_K*/;
+				sp_Td = SPEED_TD_SP;
+			}
 #else
-		sp_Kp = SPEED_KP;
-		sp_Ti = SPEED_TI;
-		sp_Td = SPEED_TD;
+			sp_Kp = SPEED_KP;
+			sp_Ti = SPEED_TI;
+			sp_Td = SPEED_TD;
 #endif
-		SpeedKp = sp_Kp * (float32_t)(AI_PC_SPEED_KP) / 100.0;
-		SpeedTi = sp_Ti * (float32_t)(AI_PC_SPEED_TI) / 100.0;
-		SpeedTd = sp_Td;
+		}
+		SpeedKp = sp_Kp * mul_Kp;
+		SpeedTi = sp_Ti * mul_Ti;
+		SpeedTd = sp_Td * mul_Ti;
+		oldMulKp = mul_Kp;
+		oldMulTi = mul_Ti;
 		TorqueKp = TORQUE_KP * (float32_t)(AI_PC_TORQUE_KP) / 100.0;
 		TorqueTi = TORQUE_TI * (float32_t)(AI_PC_TORQUE_TI) / 100.0;
 		init_PID(); // Регуляторы контуров управления
@@ -935,6 +948,14 @@ void work_step (void) {
 				}
 				if (state.step == ST_FUEL_PUMP) {
 					if (timers_get_time_left(time.alg) == 0) {
+						if (!TuneCheck && !st(AI_PC_ROTATE)) {
+							Speed_PID.Kp *= 50.0f;
+							Speed_PID.u = 1200.0f;
+							Speed_PID.Tf = 0.2;
+							pid_tune_new(&Speed_PID, &Speed_Out,
+									servo_set_out,	ZIEGLER_NICHOLS);
+						}
+						TuneCheck = true;
 #ifndef NO_BATTERY
 						if (st(AI_U_AKB) >= st(CFG_U_AKB_NORMAL)) {
 #endif // #ifndef NO_BATTERY
@@ -1245,7 +1266,9 @@ void work_stop (void) {
 		set(DO_FUEL_PUMP, OFF);
 	}
 	set(AO_SERVO_POSITION, 0);
-	init_PID();
+	pid_r_init(&Speed_PID);
+	pid_r_init(&Torque_PID);
+	//init_PID();
 	//pid_init = false;
 #if UNI_CONTROL
 	if (SpeedCntrl == TSC1Control) {
@@ -1331,7 +1354,7 @@ void init_PID (void) {
 		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 #if SERVO_CONTROL
 		Speed_PID.Xd = ZONE_DEAD_REF / servoKd();
-		Speed_PID.Kp /= servoKd();
+		Speed_PID.Kp *= servoKd();
 #endif
 	}
 	pid_r_init(&Torque_PID);
@@ -1433,6 +1456,40 @@ void Speed_loop (void) {
 	if (timers_get_time_left(time.alg) == 0) { // управление контуром оборотов
 		time.alg = timers_get_finish_time(SPEED_LOOP_TIME);
 		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+		tune_st tune = pid_tune_state();
+		task = (float32_t)st(AI_PC_ROTATE) / 1000.0;
+		if (tune == TUNE_NEW_START) {
+			tune_start = true;
+			error.dword = 0;
+			error.bit.pid_self_tune = 1;
+			goto tune_step;
+		} else if (tune == TUNE_PROCEED) {
+			tune_step:
+			pid_tune_step();
+#if MODEL_OBJ
+			out = servo_get_pos() * SPEED_FACT;
+			Speed_Out = get_obj(&FrequeObj, out);
+			if (Speed_Out < SPD_MIN) Speed_Out = SPD_MIN;
+#endif // MODEL_OBJ
+			return;
+		} else if (tune == TUNE_COMPLETE) {
+			if (tune_start) {
+				TuneOk = true;
+				error.dword = 0;
+				error.bit.pid_stune_ok = 1;
+				ret_tune:
+				pid_init = false;
+				tune_start = false;
+				cmd.opr = ST_STOP;
+				return;
+			}
+		} else { // tune == TUNE_STOP_ERR
+			if (tune_start) {
+				error.dword = 0;
+				error.bit.err_stune = 1;
+				goto ret_tune;
+			}
+		}
 		task -= Speed_Out; // PID input Error
 		if ((servo_get_pos() >= 98.0) && (task > 0)) return;
 		if ((servo_get_pos() <= 2.0) && (task < 0)) return;

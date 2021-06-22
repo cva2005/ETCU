@@ -20,7 +20,11 @@ extern "C"
 #define B3_CONST		3.700f
 #define B_DIFF			0.500f  // допуск на косвенные условия оптимальности
 #define FULL_TIME		300000U // суммарное врем€ самонастройки, мс
+#if SERVO_CONTROL
+#define T_BREAK			20000U
+#else
 #define T_BREAK			5000U
+#endif
 
 /*
  * VARYING RESPONSE - TUNING CONSTANTS
