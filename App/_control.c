@@ -951,7 +951,7 @@ void work_step (void) {
 						if (!TuneCheck && !st(AI_PC_ROTATE)) {
 							Speed_PID.Kp *= 50.0f;
 							Speed_PID.u = 1200.0f;
-							Speed_PID.Tf = 0.2;
+							Speed_PID.Tf = 0.3;
 							pid_tune_new(&Speed_PID, &Speed_Out,
 									servo_set_out,	ZIEGLER_NICHOLS);
 						}
@@ -1345,7 +1345,8 @@ float32_t get_obj (obj_t * obj, float32_t inp) {
  * Инициализация контуров регулирования
  */
 void init_PID (void) {
-	if (pid_tune_state() == TUNE_NOT_USED) {
+	tune_st st = pid_tune_state();
+	if (st == TUNE_NOT_USED || st > TUNE_PROCEED) {
 		pid_r_init(&Speed_PID);
 		Speed_PID.Kp = SpeedKp;
 		Speed_PID.Ti = SpeedTi;
@@ -1353,8 +1354,11 @@ void init_PID (void) {
 		Speed_PID.Tf = SPEED_DF_TAU;
 		Speed_PID.Xi = SPEED_MAX / XI_DIV;
 #if SERVO_CONTROL
-		Speed_PID.Xd = ZONE_DEAD_REF / servoKd();
-		Speed_PID.Kp *= servoKd();
+		if (st == TUNE_NOT_USED) {
+			float32_t k = servoKd();
+			Speed_PID.Xd = ZONE_DEAD_REF / k;
+			Speed_PID.Kp *= k;
+		}
 #endif
 	}
 	pid_r_init(&Torque_PID);

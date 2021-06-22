@@ -276,7 +276,7 @@ float32_t servo_get_pos(void)
 /* servo multiply K */
 float32_t servoKd(void)
 {
-	return (float32_t) FullCount / (float32_t)CNT_FULL_VAL;
+	return (float32_t)FullCount / (float32_t)CNT_FULL_VAL;
 }
 
 /* set position of control */
