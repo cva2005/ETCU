@@ -659,6 +659,7 @@ void read_keys (void) {
 		time.all = timers_get_finish_time(time_all);
 	}
 	if (st(DI_PC_TEST_STOP)) {
+		if (pid_tune_state() == TUNE_PROCEED) return;
 		cmd.opr = ST_STOP;
 		error.dword = 0;
 #if 0/*UNI_CONTROL*/
@@ -951,7 +952,7 @@ void work_step (void) {
 						if (!TuneCheck && !st(AI_PC_ROTATE)) {
 							Speed_PID.Kp *= 50.0f;
 							Speed_PID.u = 1200.0f;
-							Speed_PID.Tf = 0.3;
+							Speed_PID.Tf = 0.1;
 							pid_tune_new(&Speed_PID, &Speed_Out,
 									servo_set_out,	ZIEGLER_NICHOLS);
 						}
@@ -1357,7 +1358,7 @@ void init_PID (void) {
 		if (st == TUNE_NOT_USED) {
 			float32_t k = servoKd();
 			Speed_PID.Xd = ZONE_DEAD_REF / k;
-			Speed_PID.Kp *= k;
+			Speed_PID.Kp /= k;
 		}
 #endif
 	}

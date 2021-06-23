@@ -134,7 +134,7 @@ tune_end:
         		compl = true;
 				pS->Kp *= 0.9;
 				dy = A / 12.0; // зона вычисления экстремумов
-				if (dy < 10) dy = 10;
+				if (dy < 5.0) dy = 5.0;
             	Amin = inpRef + inpRef / 2;
             	Amax = inpRef - inpRef / 2;
             }

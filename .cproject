@@ -81,7 +81,7 @@
 									<listOptionValue builtIn="false" value="TORQUE_MODEL=0"/>
 									<listOptionValue builtIn="false" value="NL_3DPAS_DRIVER=1"/>
 									<listOptionValue builtIn="false" value="SERVO_CONTROL=1"/>
-									<listOptionValue builtIn="false" value="MODEL_NO_SERVO=25"/>
+									<listOptionValue builtIn="false" value="MODEL_NO_SERVO=55"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.725196392" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
