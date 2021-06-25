@@ -950,11 +950,12 @@ void work_step (void) {
 				if (state.step == ST_FUEL_PUMP) {
 					if (timers_get_time_left(time.alg) == 0) {
 						if (!TuneCheck && !st(AI_PC_ROTATE)) {
-							Speed_PID.Kp *= 50.0f;
+							float32_t k = servoKd();
+							Speed_PID.Kp *= 50.0f * k;
 							Speed_PID.u = 1200.0f;
-							Speed_PID.Tf = 0.1;
-							pid_tune_new(&Speed_PID, &Speed_Out,
-									servo_set_out,	ZIEGLER_NICHOLS);
+							if (k > 0.8) Speed_PID.Tf = 0.15;
+							else Speed_PID.Tf = 0.19;
+							pid_tune_new(&Speed_PID, &Speed_Out, servo_set_out);
 						}
 						TuneCheck = true;
 #ifndef NO_BATTERY

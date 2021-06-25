@@ -14,7 +14,7 @@ extern "C"
 #define SPEED_KP_HI		2.0f
 #define SPEED_KP_LO		0.0001f
 #define TD_ALPHA_MUL	0.250f
-#define IF_TAU			10.00f  // пост. времени входного фильтра
+#define IF_TAU			20.00f  // пост. времени входного фильтра
 #define B1_CONST		0.380f  // косвенные условия оптимальности
 #define B2_CONST		1.000f
 #define B3_CONST		3.700f
@@ -42,17 +42,18 @@ extern "C"
 #define CONST_KP	1.0f
 #define CONST_TI	0.5f
 #define CONST_TD	0.125f
+#define DY			5.0f // зона вычисления экстремумов
 
 typedef struct {
 	float32_t Kp;			/* gain factor */
 	float32_t Ti;			/* integration time */
 	float32_t Tf;			/* derivative filter tau */
 	float32_t Td;			/* derivative time */
+	float32_t Xd;			/* dead zone */
+	float32_t Xi;			/* integral zone */
 	float32_t i[ST_SIZE];	/* old input states */
 	float32_t u;			/* old output state */
 	float32_t d;			/* old derivative state */
-	float32_t Xd;			/* dead zone */
-	float32_t Xi;			/* integral zone */
 } pid_r_instance;
 
 typedef enum {
@@ -63,19 +64,13 @@ typedef enum {
 	TUNE_STOP_ERR 	= 4,
 } tune_st;
 
-typedef enum {
-	ZIEGLER_NICHOLS	= 0,
-	MPEI_ENERGY		= 1,
-} tune_t;
-
 typedef void (*pf_ctl) (float32_t y);
 
 void pid_r_init (pid_r_instance *S);
 void pid_tune_step (void);
 float32_t pid_tune_out (void);
 tune_st pid_tune_state (void);
-void pid_tune_new (pid_r_instance *s, float32_t *pi,
-					pf_ctl contrl, tune_t t_type);
+void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl);
 
 static __INLINE float32_t pid_r (pid_r_instance *S, float32_t in) {
     float32_t e[ST_SIZE + 1], D, Df, P, I, out;

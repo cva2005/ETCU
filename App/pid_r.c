@@ -4,7 +4,6 @@
 #include "pid_r.h"
 
 static pid_r_instance *pS;
-static float32_t d; // d=An/5 выход релейного элемента
 static float32_t Ufz; // выход фазосдвигающего фильтра
 static float32_t Inf; // выход входного фильтра
 static float32_t Kp;
@@ -21,18 +20,13 @@ static float32_t Amax;
 static float32_t Amin;
 static float32_t inpRef, Kmul;
 static uint32_t T, T_1, T_0, i;
-static float32_t Ufz; // выход фазосдвигающего фильтра
-static float32_t dy; // зона вычисления экстремумов
-static tune_t Ttype;
 static bool compl;
 
 void pid_r_init (pid_r_instance *S) {
 	memset(S->i, 0, (ST_SIZE + 2) * sizeof(float32_t));
 }
 
-void pid_tune_new (pid_r_instance *s, float32_t *pi,
-					pf_ctl contrl, tune_t t_type) {
-	Ttype = t_type;
+void pid_tune_new (pid_r_instance *s, float32_t *pi, pf_ctl contrl) {
 	pS = s;
 	pInp = pi;
 	Inf = *pi;
@@ -44,24 +38,12 @@ void pid_tune_new (pid_r_instance *s, float32_t *pi,
 	Td = s->Td;
 	Xi = s->Xi;
 	Xd = s->Xd;
-	s->Xi = 0;
-	s->Xd = 0;
-	s->Tf = 0;
-	Ufz = 0;
-	if (t_type == ZIEGLER_NICHOLS) {
-		s->Ti = 0;
-		s->Td = 0;
-		dy = 10.0; // зона вычисления экстремумов
-		d = 0;
-	} else { // MPEI_ENERGY
-		s->Kp = SPEED_KP_LO;
-		d = s->d;
-		dy = d / 50.0; // зона вычисления экстремумов
-	}
+	memset(&s->Ti, 0, 5 * sizeof(float32_t));
 	pid_r_init(s);
 	State = TUNE_NEW_START;
-	Amin = +inpRef + d;
-	Amax = -inpRef - d;
+	Amin = +inpRef;
+	Amax = -inpRef;
+	Ufz = 0;
 	i = 0;
 	compl = false;
 }
@@ -90,79 +72,42 @@ tune_end:
 	float32_t Tfz = pS->Ti * B1_CONST;
 	Inf = (1 - 1 / IF_TAU) * Inf // входной фильтр
     		+ (1 / IF_TAU) * *pInp;
-	float32_t inp;
-	if (Ttype == ZIEGLER_NICHOLS) {
-		if (timers_get_time_left(BrTime) == 0) {
-			if (compl == true) {
-				State = TUNE_COMPLETE;
-				if (Kmul > 0) pS->Kp *= Kmul;
-				pS->Ti = T * CONST_TI;
-				pS->Td = T * CONST_TD;
-				goto tune_end;
-			} else {
-				goto tune_err;
-			}
+	if (timers_get_time_left(BrTime) == 0) {
+		if (compl == true) {
+			State = TUNE_COMPLETE;
+			if (Kmul > 0) pS->Kp *= Kmul;
+			pS->Ti = T * CONST_TI;
+			pS->Td = T * CONST_TD;
+			goto tune_end;
+		} else {
+			goto tune_err;
 		}
-		inp = inpRef - Inf;
-		pid_reload:
-		Ufz = pid_r(pS, inp);
-	} else { // MPEI_ENERGY
-		if ((inpRef - Inf) >= 0) inp = d;
-		else inp = -d;
-		float32_t u = pid_r(pS, inp);
-		if (u > 1) u = 1;
-		else if (u < 0) u = 0;
-		Ufz = (1 - 1 / (1 + Tfz)) * Ufz // фазосдвигающий фильтр
-				+ (1 / (1 + Tfz)) * u;
 	}
-    pContrl(Ufz); // управл€ющее воздействие
+	float32_t inp = inpRef - Inf;
+	float32_t u = pid_r(pS, inp);
+    pContrl(u); // управл€ющее воздействие
     inp = Inf;
-    if (inp - dy > Amax) {
-        Amax = inp;
+    if (inp < Amin - DY) {
+    	Amin = inp;
         T_0 = i;
     }
-    if (inp + dy < Amax) {
-        if (inp + dy < Amin) {
-            Amin = inp;
+    if (inp > Amin + DY) {
+        if (inp > Amax + DY) {
+        	Amax = inp;
             T_1 = i;
         }
-    	if (Ttype == ZIEGLER_NICHOLS) {
-            if (inp - dy > Amin) {
-				BrTime = timers_get_finish_time(T_BREAK);
-                float32_t A = (Amax - Amin) / 2;
-                T = abs(T_1 - T_0) * 2;
-        		compl = true;
-				pS->Kp *= 0.9;
-				dy = A / 12.0; // зона вычисления экстремумов
-				if (dy < 5.0) dy = 5.0;
-            	Amin = inpRef + inpRef / 2;
-            	Amax = inpRef - inpRef / 2;
-            }
-    	} else { // MPEI_ENERGY
-            if ((inp - dy > Amin) && (inp < inpRef + d)) {
-                float32_t A = (Amax - Amin) / 2;
-                T = abs(T_1 - T_0) * 2;
-            	Amin = +inpRef + d;
-            	Amax = -inpRef - d;
-            	dy = A / 50.0; // зона вычисления экстремумов
-				float32_t b2_k = A / d;
-				float32_t b3_k = (float32_t)T / pS->Ti;
-				// проверка косв. усл. оптимальности
-				if ((fabs(b2_k - B2_CONST) < B_DIFF) &&
-						(fabs(b3_k - B3_CONST) < B_DIFF)) {
-					State = TUNE_COMPLETE;
-					//if (T < 900) pS->Kp *= 0.35;
-					//pS->Ti *= 0.35;
-					//pS->Td *= 2.0;
-					//if (T < 300) pS->Kp *= 0.1;
-					goto tune_end;
-				} else { // вычисление параметров ѕ»ƒ следующей итерации
-					pS->Kp *= B2_CONST / b2_k;
-					pS->Ti *= b3_k / B3_CONST;
-					pS->Td = TD_ALPHA_MUL * pS->Ti;
-				}
-            }
-    	}
+        if (inp < Amax - DY) {
+            float32_t A = (Amax - Amin) / 2;
+            T = (T_1 - T_0) * 2;
+    		compl = true;
+			pS->Kp *= 0.8;
+			Amin = inpRef + inpRef / 2;
+        	Amax = inpRef - inpRef / 2;
+        	uint32_t prd_t = timers_get_time_left(BrTime);
+			BrTime = timers_get_finish_time(T_BREAK - prd_t);
+			pid_r_init (pS);
+			pS->u = u;
+        }
     }
 }
 
