@@ -346,15 +346,22 @@ void read_devices (void) {
 	sg_st.etcu.i.a[ETCU_AI_I_P]=i_sens_get_val(12) * 10;//adc_get_calc(11,1,0,1,1);//adc_sens_get_val(11);
 	sg_st.etcu.i.a[ETCU_AI_I_N]=i_sens_get_val(11) * 10;//adc_get_calc(12,1,0,1,1);//adc_sens_get_val(12);
 	sg_st.etcu.i.a[ETCU_AI_U]=u_sens_get_val();//adc_get_calc(13,1,0,1,1);//adc_sens_get_val(13);
-	//sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL]=p_745_get_val();//adc_get_calc(0,1,0,3,3);//adc_sens_get_val(0);
-	sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL] = adc_get_u(0); // la10p датчик тока
+#if ENGINE_CONTROL
+	//sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL] = adc_get_u(0); // la10p датчик тока
+#else
+	sg_st.etcu.i.a[ETCU_AI_FUEL_LEVEL]=p_745_get_val();//adc_get_calc(0,1,0,3,3);//adc_sens_get_val(0);
+#endif
 	sg_st.etcu.i.a[ETCU_AI_T1]=t_auto_get_val(1);
 	sg_st.etcu.i.a[ETCU_AI_T2]=t_auto_get_val(2);
 	sg_st.etcu.i.a[ETCU_AI_T3]=t_auto_get_val(3);
 	//sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_val(6);
 	//sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6);
+#if ENGINE_CONTROL
 	sg_st.etcu.i.a[ETCU_AI_T4] = adc_get_u(6); // la10p датчик положения
-	sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7);
+#else
+	sg_st.etcu.i.a[ETCU_AI_T4]=t_auto_get_r(6); // уровень масла ГТ
+#endif
+	sg_st.etcu.i.a[ETCU_AI_T5] = t_auto_get_r(7); // уровень топлива
 	sg_st.etcu.i.a[ETCU_AI_P_OIL]=p_mm370_get_val(14);//adc_get_calc(14,1,0,3,3);//adc_sens_get_val(14);
 #define T_COOLANT_HI 		80000UL
 #define COOLANT_FAN_HYST 	10000UL
@@ -1137,15 +1144,15 @@ void set_indication (void) {
 #define LEVEL_MAX	100000
 #define LEVEL_MIN	10000
 #define LEVEL_ERR	125000
-	val = (st(AI_T_FUEL) * 100000) / 92; // Уровень топлива XP8
+	val = (st(AI_T_FUEL) * 100000) / 770; // Уровень топлива XP8
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
 		else val = ERROR_CODE;
 	}
 	set(AO_PC_FUEL_LEVEL, val); // Уровень топлива XP8
 	set(AO_PC_T_OIL_OUT, st(AI_T_OIL_OUT)); // ToDo: la10p датчик положения
-#if 0 //
-	val = (st(AI_T_OIL_OUT) * 100000) / 92; // Уровень масла XP7
+#if 1 //
+	val = (st(AI_T_OIL_OUT) * 100000) / 770; // Уровень масла XP7
 	if (val > LEVEL_MAX) {
 		if (val < LEVEL_ERR) val = LEVEL_MAX;
 		else val = ERROR_CODE;
@@ -1171,7 +1178,7 @@ void set_indication (void) {
 	set(AO_PC_P_OIL, st(AI_P_OIL)); //Аналоговый: Давление масла
 	//set(AO_PC_P_CHARGE, st(AI_P_CHARGE)); //Аналоговый: Давление наддувочного воздуха
 	//set(AO_PC_T_CHARGE, st(AI_T_CHARGE)); //Аналоговый: Температура наддувочного воздуха
-	//set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
+	set(AO_PC_P_MANIFOLD, st(AI_P_MANIFOLD)); //Аналоговый: Давление впускного коллектора
 	//extern uint32_t curr;
 	//set(AO_PC_P_MANIFOLD, curr); //Аналоговый: Давление впускного коллектора
 	//параметры атмосферы
